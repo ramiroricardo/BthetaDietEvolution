@@ -1,0 +1,1590 @@
+---
+title: "Analysis of Mutations Identified on Day 84"
+author: "Ricardo Ramiro"
+date: "23/07/2020"
+output: 
+  html_document:
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo=TRUE, 
+                      message=FALSE, 
+                      error = TRUE,
+                      warning=FALSE, 
+                      paged.print=FALSE, 
+                      fig.align = "center")
+
+knitr::opts_hooks$set(eval = function(options) {
+  if (options$engine == "bash") {
+    options$eval <- FALSE
+  }
+  options
+})
+
+```
+
+### Run breseq v0.34.1 to call mutations in B. thetaiotaomicron populations  
+
+```{bash}
+
+# activate conda environment where breseq is installed
+conda activate breseq0.34.1
+
+# change permissions on script to run it
+chmod u+x breseq_script_D84_prokka_withMQpara_v3ref_c.sh
+
+# run script (this is set up to run multiple samples in parallel)
+nohup bash breseq_script_D84_prokka_withMQpara_v3ref_c.sh &
+
+```
+
+### get output.gd files into a single folder
+```{bash, eval=FALSE, echo=FALSE}
+
+# go to dir
+cd analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref
+
+# make new dir to put all gd files
+mkdir breseq_gdOutput_day84
+
+# copy and rename gd files
+
+for DIR in D84*; do
+    cd "$DIR"/output
+    cp output.gd ../../breseq_gdOutput_day84/$DIR.gd
+    cd ../..
+done
+
+
+```
+
+### use gdtools compare to get mutation tables
+```{bash}
+
+
+# reference sequence
+REF=analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/TDA1000_chromosome_plasmid_v3.gff3
+
+# move to folder with gd files
+cd breseq_gdOutput_day84
+
+# generate html file comparing all runs of the ancestral
+gdtools COMPARE -r $REF --repeat-header 0 -o ../downstreamAnalysis/breseq_output_day84.html `ls *.gd`
+
+```
+
+The above html files were then copied in to google sheets of the same name. Two tabs were created:  
+- raw: just copy paste  
+- edited. In this sheet I did the following:  
+  - google sheets considers anything that starts as a plus sign as a formula and gives an error. This is important in column C (mutation). To change this behaviour I replaced, using REGEX, 
+  "=\+" by "'+". The apostrophe allows the plus sign to be the first character
+  - when the same gene is mutated with both SNPs and deletions, breseq will add Δ in the frequency field for samples that got deletions. I replaced all these Δ by nothing  
+  - replaced "\?" by noting
+  - I changed the format of the frequencies of the mutations. These are expressed as %, I changed to decimal
+  - some positions are written as ######:# (e.g. 314,132:1 or 314,132:2). These lead to problems when making position column as numeric. Thus, I replaced "\:[0-9]" by nothing
+  - in the data from day 84 there were a few mutations in overlapping genes, with two gene names per cell, which would have caused problems in the plotting of the data. However, none of these were parallel, so these are mostly irrelevant for our analysis, so I didn't do anything about it  
+  - change the name of the column "seq id" to "seq_id"  
+  - in the gene column, I replaced all spaces, ← and → by nothing   
+
+### general data manipulation
+
+```{r}
+
+#load libraries
+library(tidyverse)
+library(readxl)
+library(cowplot)
+library(plotly)
+library(patchwork)
+
+
+# load data
+d84<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84.xlsx",sheet=2)
+
+# change order of columns, such that metadata is all on the left of the data frame
+d84<-d84[c(1:3,45:47,4:44)]
+
+# transform data to long format
+d84_long<-gather(d84,key=sample,value=frequency,D84_C10:D84_M9)
+
+# separate the sample column to its component day and mouse codes
+d84_long<-d84_long %>% separate(sample, c("day", "mouse"),sep="_",remove=F)
+
+# remove D from day
+d84_long$day<-str_remove(d84_long$day,"D")
+
+# remove NAs from the frequency column
+d84_long<-d84_long[!is.na(d84_long$frequency),]
+
+#transform position to numeric
+d84_long$position<-as.numeric(d84_long$position)
+
+# get the first letter from each mouse code, as this indicates the diet
+d84_long$trt<-str_sub(d84_long$mouse,1,1)
+
+# create a data frame matching the 1-letter codes to the codes used in the paper
+trt_diet<-data.frame(trt=c("C","M","F"),diet=c("WD","SD","AD"))
+
+# match the 1-letter diet codes to those to use in the paper
+d84_long<-left_join(d84_long,trt_diet)
+
+# create a new column for  easy identification of mutations
+d84_long$seqid_position_mutation_gene<-paste0(d84_long$seq_id,"_",d84_long$position,"_",d84_long$mutation,"_",d84_long$gene)
+
+# write the long format dataframe to a new file
+# writexl::write_xlsx(d84_long,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_c.xlsx")
+```
+
+
+
+## detect and remove low confidence mutations
+
+### check which regions of the genome have multiple mutations across >2/3 of the mice
+
+##### count number of mutations in windows of 1000bp per mouse
+1000 bp was used as the window as this is the expected average gene size for bacteria (e.g. https://www.pnas.org/content/101/9/3160)
+
+```{r}
+# load packages
+library(rollply)
+library(ggbeeswarm)
+
+# count the number of mutations in windows of 1000bp (approximately the gene size in bacteria)
+d84_long.smoothed <- d84_long %>% group_by(seq_id,mouse,diet) %>%
+  rollply(., ~ position, wdw.size = 1000, summarize, mutation_no = n(), ) %>%
+  arrange(seq_id,position)
+
+#remove regions without mutations
+d84_long.smoothed<-d84_long.smoothed[!d84_long.smoothed$mutation_no==0,]
+
+
+```
+
+#### do boxplots with the whiskers being at 99% CI, instead of the 1.5IQR  
+
+Boxplot for the chromosome
+
+```{r}
+
+#function for 99% CI
+quantiles_99 <- function(x) {
+  r <- quantile(x, probs=c(0.01, 0.25, 0.5, 0.75, 0.99))
+  names(r) <- c("ymin", "lower", "middle", "upper", "ymax")
+  r
+}
+
+
+# plot for the chromosone
+p<-ggplot(d84_long.smoothed[d84_long.smoothed$seq_id=="chromosome",],
+       aes(x=mouse,y=mutation_no))+
+  guides(fill=F) +
+  stat_summary(fun.data = quantiles_99, geom="boxplot")+
+  geom_quasirandom(aes(label=position,label2=seq_id))+
+  xlab("Mouse")+ylab("Mutation Count")+
+  cowplot::theme_cowplot()+
+  background_grid(major="xy")+
+  theme(legend.position = "none")+
+  facet_grid(~diet,scales="free_x",drop=T)+
+  ggtitle("chromosome")
+
+ggplotly(p)
+
+```
+
+Boxplot for the plasmid
+
+```{r}
+# plot for the plasmid
+p<-ggplot(d84_long.smoothed[d84_long.smoothed$seq_id=="plasmid",],
+       aes(x=mouse,y=mutation_no))+
+  guides(fill=F) +
+  stat_summary(fun.data = quantiles_99, geom="boxplot")+
+  geom_quasirandom(aes(label=position,label2=seq_id))+
+  xlab("Mouse")+ylab("Mutation Count")+
+  cowplot::theme_cowplot()+
+  background_grid(major="xy")+
+  scale_y_log10()+
+  theme(legend.position = "none")+
+  facet_grid(~diet,scales="free_x",drop=T)+
+  ggtitle("plasmid")
+
+ggplotly(p)
+```
+
+
+Plots for the chromosome showed that any 1000bp region with more than 3 mutations is beyond the 99% CI, so beelow I filter for those gene regions that have 3 or more mutations
+
+#### summarize mutation counts per position range
+
+```{r}
+
+# keep all regions that have three or more mutations
+d84_long.smoothed_above3<-d84_long.smoothed[d84_long.smoothed$mutation_no>=3,]
+
+#position is a non-integer, round it to an integer
+d84_long.smoothed_above3$position<-round(d84_long.smoothed_above3$position,0)
+
+#get the unique position-seq_id combinations
+d84_long.smoothed_above3_unique<-d84_long.smoothed_above3[c(1,2)] %>% distinct()
+
+# get a table that summarizes, for each position, the number of mice that has a mutation in it and and the number of mutations per mouse
+d84_long.smoothed_above3_mouseCount<-d84_long.smoothed_above3 %>% 
+  group_by(seq_id,position,mouse,diet=fct_explicit_na(diet)) %>%
+  summarise(mutation_no=sum(mutation_no)) %>% 
+  group_by(seq_id,position) %>% 
+  summarize(mouse_no=n(),min_mutations_perMouse=min(mutation_no),max_mutations_perMouse=max(mutation_no),mean_mutations_perMouse=mean(mutation_no)) %>%
+  arrange(-mouse_no)
+
+
+#get regions that are mutated in at least 2/3 of the mice. Those are further inspected. 
+
+d84_long.smoothed_above3_mouseCount_subset<-d84_long.smoothed_above3_mouseCount %>% subset(mouse_no>=27) %>% arrange(seq_id,position)
+
+# knitr::kable(d84_long.smoothed_above3_mouseCount_subset,format = "markdown")
+
+```
+
+This generates 1 regions that get >3 mutations in 39 or 40 mice. This region was then manually redefined to specific positions by looking at mutations in the same genes:
+
+|seq_id     | position| mouse_no| min_mutations_perMouse| max_mutations_perMouse| mean_mutations_perMouse|refined_position_byGeneID|Ancestral                | genes_inRegion
+|:----------|--------:|--------:|----------------------:|----------------------:|-----------------------:|:------------------------|:------------------------|:--------------
+|chromosome |  1096287|       40|                      3|                      9|                6.750000|1095828 - 1098878        |many muts in TDA1000/1/2 |TDA1000_00850 ←
+|chromosome |  1097287|       39|                      4|                      9|                6.871795|1095828 - 1098878        |many muts in TDA1000/1/2 |TDA1000_00851 →
+
+
+
+
+#### Create and export a list of all the mutations in this repetitive region  
+
+```{r}
+
+# create a data frame that has the number of mice that each mutation in the repetitive region
+d84_long_rep_region<-d84_long %>% subset(seq_id=="chromosome" & position>1095828-1 & position<1098878+1) %>% group_by(seq_id,position,mutation,annotation,gene,description) %>% summarize(sample_count=n())
+
+# export data
+# writexl::write_xlsx(d84_long_rep_region,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/regions_multipleMutations_d84_uniqueMutations_c.xlsx")
+
+
+```
+
+
+
+
+## make file with low confidence mutational targets (ancestral with High mapping quality)  
+
+```{r}
+
+#load the data
+regionsMult <- read_excel("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/regions_multipleMutations_d84_uniqueMutations_c.xlsx")
+mutsAnc <- read_excel("analysis/genomics/ancestrals_breseq/downstreamAnalysis/ancestral_mutations_polymorphismHighMappingQualMQ.xlsx")
+
+# add a column with the type of low confidence mutation
+
+regionsMult$type<-rep("region_MultipleMutations",dim(regionsMult)[1])
+mutsAnc$type<-rep("Ancestral",dim(mutsAnc)[1])
+
+# sample_count in mutsAnc was for the ancestrals and we need this for the  samples
+
+mutsAnc$seqid_position_mutation_gene<-paste(mutsAnc$seq_id,
+                                            mutsAnc$position,
+                                            mutsAnc$mutation,
+                                            mutsAnc$gene,
+                                            sep = "_")
+d84_long_numberMice_withMutation<-d84_long %>% 
+  group_by(seq_id,position,mutation,annotation, gene,description) %>%
+  summarise(sample_count=n())
+
+d84_long_numberMice_withMutation$seqid_position_mutation_gene<-paste(d84_long_numberMice_withMutation$seq_id,
+                                                                     d84_long_numberMice_withMutation$position,
+                                                                     d84_long_numberMice_withMutation$mutation,
+                                                                     d84_long_numberMice_withMutation$gene,
+                                                                     sep = "_")
+
+
+mutsAnc_d84<-d84_long_numberMice_withMutation %>% filter(seqid_position_mutation_gene %in% unique(mutsAnc$seqid_position_mutation_gene))
+
+mutsAnc_notInd84<-mutsAnc %>% filter(!seqid_position_mutation_gene %in% unique(d84_long_numberMice_withMutation$seqid_position_mutation_gene))
+
+# mutations present in the ancestrals but not in day84 get a 0 count
+mutsAnc_notInd84$sample_count<-0
+
+#mutations present in the ancestrals and day84 must get the Ancestral type
+mutsAnc_d84$type<-"Ancestral"
+  
+#bind the two dataframes above
+mutsAnc<-bind_rows(mutsAnc_d84[c(1:7,9,8)],mutsAnc_notInd84)
+
+# bind all three dataframes
+low_confidence_mutations<-bind_rows(regionsMult, mutsAnc[1:8])
+
+# get a list of unique mutations
+low_confidence_mutations_unique<-low_confidence_mutations %>% 
+  group_by(seq_id,position,mutation,annotation,gene,description) %>% 
+  mutate(type = paste(type, collapse=","),
+         sample_count = paste(sample_count, collapse=",")) %>%
+  distinct() 
+
+```
+
+```{r}
+# load annotation data
+annotation<-readxl::read_excel("analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/annotation_table_short.xlsx")
+
+
+# there were a few mutations that correspond to a deletion, the labels for these needed to be edited
+low_confidence_mutations_unique$gene<-str_replace_all(low_confidence_mutations_unique$gene,"\\[", "")
+low_confidence_mutations_unique$gene<-str_replace_all(low_confidence_mutations_unique$gene,"\\]", "")
+low_confidence_mutations_unique$gene<-str_replace_all(low_confidence_mutations_unique$gene,"–", "/")
+
+# create two new columns with gene names (for when mutations are in intergenic regions)
+low_confidence_mutations_unique<-low_confidence_mutations_unique %>% separate(gene, c("gene_1", "gene_2"),sep="/",remove=F)
+
+#merge data frame of mutations with annotations (for gene 1)
+
+low_confidence_mutations_unique<-left_join(low_confidence_mutations_unique,annotation,by=c("gene_1"="locus_tag_prokka"))
+
+low_confidence_mutations_unique<-low_confidence_mutations_unique %>% rename_at(11, ~paste0(., "_1"))
+
+#merge data frame of mutations with annotations (for gene 2)
+
+low_confidence_mutations_unique<-left_join(low_confidence_mutations_unique,annotation,by=c("gene_2"="locus_tag_prokka"))
+
+low_confidence_mutations_unique<-low_confidence_mutations_unique %>% rename_at(12, ~paste0(., "_2"))
+
+
+
+# merge locus that are intergenic mutations
+low_confidence_mutations_unique$locus_name<-ifelse(is.na(low_confidence_mutations_unique$locus_tag_db_2),low_confidence_mutations_unique$locus_tag_db_1,
+                                  paste0(low_confidence_mutations_unique$locus_tag_db_1,"/",low_confidence_mutations_unique$locus_tag_db_2))
+
+low_confidence_mutations_unique$locus_name<-ifelse(low_confidence_mutations_unique$seq_id=="plasmid",low_confidence_mutations_unique$gene,low_confidence_mutations_unique$locus_name)
+
+
+#change order of columns so that the BT locus_names are close to the gene names
+low_confidence_mutations_unique<-low_confidence_mutations_unique %>% select(1:5,locus_name,8,10,9) %>% 
+  arrange(seq_id,position)
+
+
+
+#export data
+# writexl::write_xlsx(low_confidence_mutations_unique,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/low_confidence_mutations_unique_c.xlsx")
+
+# get list of low confidence mutational targets
+low_confidence_mutationalTargets<-low_confidence_mutations_unique[c(1,5:7)] %>% distinct()
+
+# writexl::write_xlsx(low_confidence_mutationalTargets,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/low_confidence_mutationalTargets_c.xlsx")
+
+
+DT::datatable(low_confidence_mutations_unique, extensions = "Buttons", 
+          options = list(pageLength = 10,dom = "Blfrtip", buttons = "csv"))
+
+```
+
+## remove low confidence mutations from mutation list  
+
+
+```{r}
+# load low confidence mutations 
+low_confidence_mutations_unique<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/low_confidence_mutations_unique_c.xlsx")
+
+
+#create a column code for filtering
+low_confidence_mutations_unique$seqid_position_mutation_gene<-paste(low_confidence_mutations_unique$seq_id,
+                                                                    low_confidence_mutations_unique$position,
+                                                                    low_confidence_mutations_unique$mutation,
+                                                                    low_confidence_mutations_unique$gene,
+                                                                    sep = "_")
+#create vector with low quality mutation codes
+low_confidence_mutations_unique<-low_confidence_mutations_unique$seqid_position_mutation_gene
+
+
+# remove all mutations that match above code
+d84_long<-d84_long %>% subset(!seqid_position_mutation_gene %in% low_confidence_mutations_unique)
+
+
+# reorder levels of diet
+d84_long$diet<-factor(d84_long$diet,levels=c("SD","WD","AD"))
+
+# write the long format dataframe to a new file
+# writexl::write_xlsx(d84_long,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_woutLowConfMutations_c.xlsx")
+
+```
+
+
+## add annotations to table (e.g. BT gene names, functions, etc)
+
+
+
+```{r}
+
+#create new dataframe with annotations
+d84_long_annot<-d84_long
+
+# there were a few mutations that correspond to a deletion, the labels for these needed to be edited
+d84_long_annot$gene<-str_replace_all(d84_long_annot$gene,"\\[", "")
+d84_long_annot$gene<-str_replace_all(d84_long_annot$gene,"\\]", "")
+d84_long_annot$gene<-str_replace_all(d84_long_annot$gene,"–", "/")
+
+# create two new columns with gene names (for when mutations are in intergenic regions)
+d84_long_annot<-d84_long_annot %>% separate(gene, c("gene_1", "gene_2"),sep="/",remove=F)
+
+#merge data frame of parallel mutations with annotations (for gene 1)
+
+d84_long_annot<-left_join(d84_long_annot,annotation,by=c("gene_1"="locus_tag_prokka"))
+
+d84_long_annot<-d84_long_annot %>% rename_at(16, ~paste0(., "_1"))
+
+#merge data frame of parallel mutations with annotations (for gene 2)
+
+d84_long_annot<-left_join(d84_long_annot,annotation,by=c("gene_2"="locus_tag_prokka"))
+
+d84_long_annot<-d84_long_annot %>% rename_at(17, ~paste0(., "_2"))
+
+
+# merge locus that are intergenic mutations
+d84_long_annot$locus_name<-ifelse(is.na(d84_long_annot$locus_tag_db_2),d84_long_annot$locus_tag_db_1,
+                                  paste0(d84_long_annot$locus_tag_db_1,"/",d84_long_annot$locus_tag_db_2))
+
+# keep gene name for plasmid mutations
+d84_long_annot$locus_name<-ifelse(d84_long_annot$seq_id=="plasmid",d84_long_annot$gene,
+                                  d84_long_annot$locus_name)
+
+# there are two loci with overlapping genes: TDA1000_02181 TDA1000_02182 and TDA1000_00472 TDA1000_00473
+
+d84_long_annot$locus_name<-ifelse(str_detect(d84_long_annot$gene,"TDA1000_02181"),d84_long_annot$gene,
+                                  d84_long_annot$locus_name)
+
+d84_long_annot$locus_name<-ifelse(str_detect(d84_long_annot$gene,"TDA1000_00472"),"BT_2879 BT_2880",
+                                  d84_long_annot$locus_name)
+
+#change order of columns so that the BT locus_names are close to the gene names
+d84_long_annot<-d84_long_annot[c(1:5,18,8:17)]
+
+# write the long format dataframe to a new file
+# writexl::write_xlsx(d84_long_annot,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_woutLowConfMutations_withAnnotations_c.xlsx")
+
+```
+
+
+# Count the number of mutations per mouse
+
+
+## Total number of mutations
+
+Most mice have between 20 and 70 mutations, except 3 mice: M1, M3 and C4 which have 274, 230 and 156 mutations (respectively).  
+- Mouse M1: has one mutation in mutS at 0.7%. If most mutations arise in these mutator backgrounds, we would predict most mutations would be below 1%. Indeed, 171 are <=1% and 250 are <=2%.  
+- Mouse M3: not immediately clear which mutations could lead to mutators. 205 mutations are <=2%  
+- Mouse C4: not immediately clear which mutations could lead to mutators. 86 mutations are <=2%    
+
+
+
+```{r}
+
+# create data
+d84_mutationCount<-d84_long %>% group_by(mouse,diet) %>% summarize(mutation_tot=n())
+
+d84_mutationCount$diet<-factor(d84_mutationCount$diet,levels=c("SD","WD","AD"))
+
+d84_mutationCount$mouse2<-str_sub(d84_mutationCount$mouse,start = 2,end = 3) %>% 
+  as.numeric() %>% as.factor()
+
+p<-ggplot(d84_mutationCount,aes(x=diet,y=mutation_tot,fill=diet))+
+  geom_boxplot(outlier.shape = NA, alpha=0.6)+
+  geom_quasirandom(aes(label=mouse),shape=21,size=3)+
+  xlab("Diet")+ylab("Mutation count")+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  theme(legend.position = "none")+
+  ylim(0,300)
+
+p
+
+#interactive/downloadable table
+DT::datatable(data = d84_mutationCount, extensions = "Buttons", 
+          options = list(dom = "Blfrtip", buttons = c("csv","excel")))
+
+```
+
+
+
+## Mutation count per mouse - Fig. 2A
+
+```{r}
+
+
+p<-ggplot(d84_mutationCount,aes(x=mouse2,y=mutation_tot,fill=diet))+
+  geom_col(alpha=0.5)+
+  xlab("Mouse")+ylab("Mutation counts per mouse")+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y",minor="y")+
+  theme(legend.position = "none")+
+  facet_wrap(~diet,scales = "free_x")+
+  ylim(0,300)
+
+p
+
+```
+
+## Mutation frequency per mouse - Fig. 2A 
+
+```{r}
+
+d84_long$mouse2<-str_sub(d84_long$mouse,start = 2,end = 3) %>% 
+  as.numeric() %>% as.factor()
+
+p<-ggplot(d84_long,aes(x=mouse2,y=frequency,fill=diet))+
+  geom_quasirandom(aes(label=mouse),shape=21)+
+  xlab("Mouse")+ylab("Mutation frequency")+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y",minor="y")+
+  theme(legend.position = "none")+
+  facet_wrap(~diet,scales = "free_x")+
+  scale_y_log10()
+
+p
+
+```
+
+
+## Mutation Spectra - Fig. S3B
+
+Black points: frequency of coding SNPs that are non-synonymous (relative to synonymous)  
+
+Grey points: frequency of mutations that are in coding regions (relative to intergenic)
+
+```{r,fig.width=10,fig.height=6}
+
+library(RColorBrewer)
+
+# dataframe with the number of mutations per type per mouse
+d84_mutationCount_perType<-d84_long %>% group_by(diet,gene,mutation,annotation,mouse) %>% summarize(mutation_no=n())
+
+#### rename mutation types ####
+
+# get list of unique mutations and sort it alphagbetically
+mutation<-unique(d84_mutationCount_perType$mutation)
+mutation_types_df<-data.frame(mutation) %>% arrange(mutation)
+
+#count the number of characters in each mutation type (this is useful because only snps have 3)
+mutation_types_df$str_no<-str_count(mutation_types_df$mutation)
+
+# create two data frames, one for SNPs and another for non-snps
+mutation_types_df_snps<-mutation_types_df %>% subset(str_no==3)
+mutation_types_df_non_snps<-mutation_types_df %>% subset(!str_no==3)
+
+# add general mutation type for snps
+snps<-data.frame(mutation =c("A→C"  ,"T→G"  ,"A→G"  ,"T→C"  ,"A→T"  ,"T→A"  ,"C→A"  ,"G→T"  ,"C→G"  ,"G→C"  ,"C→T"  ,"G→A"),
+                 mutation2=c("AT:CG","AT:CG","AT:GC","AT:GC","AT:TA","AT:TA","CG:AT","CG:AT","CG:GC","CG:GC","CG:TA","CG:TA"))
+
+
+mutation_types_df_snps<-left_join(mutation_types_df_snps,snps)
+
+
+# add general mutation type for other mutations
+mutation_types_df_non_snps$mutation2<-ifelse(str_detect(mutation_types_df_non_snps$mutation,"IS"),"IS","indel")
+
+#join the two dataframes of mutation types
+mutation_types_df<-bind_rows(mutation_types_df_snps,mutation_types_df_non_snps)
+
+# add new mutation types to dataframe of counts
+d84_mutationCount_perType<-left_join(d84_mutationCount_perType,mutation_types_df %>% select(mutation,mutation2))
+
+# add a region type column for coding/intergenic mutations
+d84_mutationCount_perType$region_type<-ifelse(str_detect(d84_mutationCount_perType$annotation,"intergenic"),"intergenic","coding")
+
+#some genes had no annotation, so I edited those
+d84_mutationCount_perType$region_type<-ifelse(d84_mutationCount_perType$gene %in% c("[TDA1000_04919]","[TDA1000_00406]"),"coding",d84_mutationCount_perType$region_type)
+
+
+#### create a new dataframe of counts for mutation spectra ####
+
+d84_mutationCount_perType_spectra<-
+  d84_mutationCount_perType %>%
+  group_by(diet,mouse,mutation2) %>%
+  summarize(count=sum(mutation_no)) %>% 
+  group_by(diet,mouse) %>% 
+  mutate(total=sum(count))
+
+#calculate mutation frequency
+d84_mutationCount_perType_spectra$frequency<-d84_mutationCount_perType_spectra$count/d84_mutationCount_perType_spectra$total
+
+# remove letters from mouse names, so you can order bars by mouse number more easily
+d84_mutationCount_perType_spectra$mouse2<-str_sub(d84_mutationCount_perType_spectra$mouse,start = 2,end = 3) %>% 
+  as.numeric() %>% as.factor()
+
+#reorder diet levels
+d84_mutationCount_perType_spectra$diet<-factor(d84_mutationCount_perType_spectra$diet,levels=c("SD","WD","AD"))
+
+  
+#### create a new dataframe of counts for mutation region ####
+
+d84_mutationCount_perType_region<-
+  d84_mutationCount_perType %>%
+  group_by(diet,mouse,region_type) %>%
+  summarize(count=sum(mutation_no)) %>% 
+  group_by(diet,mouse) %>% 
+  mutate(total=sum(count))
+
+#calculate mutation frequency
+d84_mutationCount_perType_region$frequency<-d84_mutationCount_perType_region$count/d84_mutationCount_perType_region$total
+
+# remove letters from mouse names, so you can order bars by mouse number more easily
+d84_mutationCount_perType_region$mouse2<-str_sub(d84_mutationCount_perType_region$mouse,start = 2,end = 3) %>% 
+  as.numeric() %>% as.factor()
+
+#reorder diet levels
+d84_mutationCount_perType_region$diet<-factor(d84_mutationCount_perType_region$diet,levels=c("SD","WD","AD"))
+
+
+#### create new dataframe of counts for syn/non-syn SNPS ####
+d84_mutationCount_perType_coding_snps<-d84_mutationCount_perType %>% filter(region_type=="coding" & mutation %in% snps$mutation) %>%
+  separate(annotation,c("aa","codon"),sep=" ",remove=F)
+
+# remove non-coding (2mutations) and pseudogene (1 mutation)
+d84_mutationCount_perType_coding_snps<-d84_mutationCount_perType_coding_snps %>% subset(!aa %in% c("pseudogene","noncoding"))
+
+#get ancestral aminoacid
+d84_mutationCount_perType_coding_snps$ancestral_aa<-str_sub(d84_mutationCount_perType_coding_snps$aa,1,1)
+
+#get evolved aminoacid
+d84_mutationCount_perType_coding_snps$evolved_aa<-str_sub(d84_mutationCount_perType_coding_snps$aa,-1,-1)
+
+#new column for synonymous or non-synonymous
+d84_mutationCount_perType_coding_snps$snp_type<-ifelse(d84_mutationCount_perType_coding_snps$ancestral_aa==d84_mutationCount_perType_coding_snps$evolved_aa,
+                                                       "synonymous","non-synonymous")
+
+#dataframe with count of snp_type per mouse
+
+d84_mutationCount_perType_coding_snps_count<-
+  d84_mutationCount_perType_coding_snps %>% 
+  group_by(mouse,diet,snp_type) %>% 
+  summarize(count=sum(mutation_no)) %>% 
+  group_by(mouse,diet) %>% 
+  mutate(total=sum(count))
+
+#get frequency of each type of mutations
+d84_mutationCount_perType_coding_snps_count$frequency<-d84_mutationCount_perType_coding_snps_count$count/d84_mutationCount_perType_coding_snps_count$total
+
+# remove letters from mouse names, so you can order bars by mouse number more easily
+d84_mutationCount_perType_coding_snps_count$mouse2<-str_sub(d84_mutationCount_perType_coding_snps_count$mouse,start = 2,end = 3) %>% 
+  as.numeric() %>% as.factor()
+
+#reorder diet levels
+d84_mutationCount_perType_coding_snps_count$diet<-factor(d84_mutationCount_perType_coding_snps_count$diet,levels=c("SD","WD","AD"))
+
+
+
+#plot mutation spectra per mouse
+ggplot()+
+  geom_bar(data=d84_mutationCount_perType_spectra,aes(x=mouse2,y=frequency,fill=mutation2),position = "stack", stat="identity")+
+  geom_point(data=na.omit(d84_mutationCount_perType_region[d84_mutationCount_perType_region$region_type=="coding",]),aes(x=mouse2,y=frequency),shape=21,fill="#d9d9d9",size=3)+
+  geom_point(data=na.omit(d84_mutationCount_perType_coding_snps_count[d84_mutationCount_perType_coding_snps_count$snp_type=="non-synonymous",]),aes(x=mouse2,y=frequency),color="#d9d9d9",fill="black",shape=21,size=3)+
+  facet_wrap(~diet,scales="free_x")+
+  scale_fill_manual(values=c("#92c5de","#2166ac","#fddbc7","#f4a582","#d6604d","#b2182b","#fee090","black"),
+                    name="Mutation\ntype")+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle=90,vjust=0.5))+
+  ylab("Mutation frequency")+
+  xlab("Mouse")
+
+
+
+
+
+
+```
+
+Table for mutation spectra
+```{r}
+#interactive/downloadable table
+DT::datatable(data = d84_mutationCount_perType_spectra, extensions = "Buttons", 
+          options = list(dom = "Blfrtip", buttons = "csv"))
+
+```
+
+Table for mutations per region type
+```{r}
+#interactive/downloadable table
+DT::datatable(data = d84_mutationCount_perType_region, extensions = "Buttons", 
+          options = list(dom = "Blfrtip", buttons = "csv"))
+
+```
+
+Table for mutations per SNP type
+```{r}
+#interactive/downloadable table
+DT::datatable(data = d84_mutationCount_perType_coding_snps_count, extensions = "Buttons", 
+          options = list(dom = "Blfrtip", buttons = "csv"))
+
+```
+
+# get parallel mutational targets
+These were defined at the gene level and included any gene or intergenic region that was mutated in at least 2 mice and in which at least one of the mice had that gene mutated at a frequency of >0.05 (so the maximum frequency needs to be above 0.05). As there are three mice that likely have mutators in the population, I obtained the list of parallel mutational targets both including and excluding these mice. A total of 77 genes were identified as parallel.
+
+#### what mutational targets are only parallel if mutator mice are included?
+```{r}
+
+d84_long<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_woutLowConfMutations_c.xlsx")
+
+#get dataframe with mutation frequency per gene, per mouse
+d84_long_freqGene<-d84_long %>% group_by(seq_id,gene,description,sample,day,mouse,trt,diet) %>%
+  summarize(freq_gene=sum(frequency))
+
+#get dataframe with maximum frequency and number of mice that carry mutation
+parallel_genes_df<-d84_long_freqGene %>% group_by(seq_id,gene) %>% 
+  summarise(max_freq=max(freq_gene),mouse_count=length(mouse)) %>%
+  subset(mouse_count>=2) %>% subset(max_freq>=0.05)
+
+# get list of paralell genes
+parallel_genes<-parallel_genes_df$gene
+
+
+########Repeat above procedure without mutator mice##########
+
+#get dataframe with mutation frequency per gene, per mouse
+d84_long_freqGene_woutMutators<-d84_long[!d84_long$mouse %in% c("M1","M3","C4"),] %>% group_by(seq_id,gene,description,sample,day,mouse,trt,diet) %>%
+  summarize(freq_gene=sum(frequency))
+
+#get dataframe with maximum frequency and number of mice that carry mutation
+parallel_genes_woutMutators_df<-d84_long_freqGene_woutMutators %>%
+  group_by(seq_id,gene) %>% 
+  summarise(max_freq=max(freq_gene),mouse_count=length(mouse)) %>%
+  subset(mouse_count>=2) %>% subset(max_freq>=0.05)
+
+# get list of paralell genes
+parallel_genes_woutMutators<-parallel_genes_woutMutators_df$gene
+
+################
+
+# get genes that are parallel only when mutator mice are included
+parallel_genes_onlyMutators<-setdiff(parallel_genes,parallel_genes_woutMutators)
+
+#get data frame for genes that are parallel when mutator mice are included
+DT::datatable(parallel_genes_df %>% subset(gene %in% parallel_genes_onlyMutators) %>% left_join(.,d84_long_annot[c("gene","locus_name")] %>% distinct()))
+
+
+
+```
+
+From here, I keep going with the list of parallel genes that are not dependent on the mutator mice, as there were only three of these and all are low prevalence and low abundance.
+
+
+
+#### get table of mutation frequencies for parallel mutations  
+
+
+```{r}
+# read data
+d84_long_annot<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_woutLowConfMutations_withAnnotations_c.xlsx")
+
+#get dataframe of parallel mutations and keep only essential columns
+d84_long_parallel<-d84_long_annot[c(1:14)] %>% subset(gene %in% parallel_genes_woutMutators)
+
+
+# writexl::write_xlsx(d84_long_parallel,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_c.xlsx")
+```
+
+
+### Number of parallel mutations and porportion of parallel mutations (relative to total) - Fig. 2B and S3A
+
+```{r}
+# create data for the parallel mutations
+d84_parallel_mutationCount<-d84_long_parallel %>% group_by(mouse,diet) %>% summarize(mutation_tot_para=n())
+
+d84_parallel_mutationCount$diet<-factor(d84_parallel_mutationCount$diet,levels=c("SD","WD","AD"))
+
+p1<-ggplot(d84_parallel_mutationCount,aes(x=diet,y=mutation_tot_para,fill=diet))+
+  geom_boxplot(outlier.shape = NA, alpha=0.6)+
+  geom_quasirandom(aes(label=mouse),shape=21,size=3)+
+  xlab("Diet")+ylab("Mutation count (parallel)")+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  theme(legend.position = "none")+
+  ylim(0,50)
+
+
+# get the proportion of parallel mutations per mouse
+d84_mutationCount<-left_join(d84_mutationCount,d84_parallel_mutationCount)
+
+d84_mutationCount$freq<-d84_mutationCount$mutation_tot_para/d84_mutationCount$mutation_tot
+
+p2<-ggplot(d84_mutationCount,aes(x=diet,y=freq,fill=diet))+
+  geom_boxplot(outlier.shape = NA, alpha=0.6)+
+  geom_quasirandom(aes(label=mouse),shape=21,size=3)+
+  xlab("Diet")+ylab("Fraction of parallel muttions")+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  theme(legend.position = "none")+
+  ylim(0,1)
+
+p1+p2
+
+```
+
+
+#### get table of mutation frequencies for parallel mutations summed per gene at day 84
+
+
+```{r}
+
+#get table with mutation frequencies summed per gene
+d84_long_parallel_freqGene<-d84_long_parallel %>%
+  group_by(seq_id,gene,locus_name,description,sample,day,mouse,trt,diet) %>%
+  summarize(freq_gene=sum(frequency))
+
+# writexl::write_xlsx(d84_long_parallel_freqGene,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+
+```
+
+
+
+#### get table of the prevalence at which each mutational target is mutated at day 84 (across mice)
+
+
+```{r}
+# get the number of mice with a gene mutated per diet
+d84_parallelMutationCounts_perDiet<-d84_long_parallel_freqGene %>%
+  group_by(seq_id,gene,locus_name,description,diet) %>% 
+  summarize(mouse_no=length(mouse)) %>% tidyr::spread(.,diet,mouse_no)
+
+d84_parallelMutationCounts_perDiet[is.na(d84_parallelMutationCounts_perDiet)]<-0
+
+# writexl::write_xlsx(d84_parallelMutationCounts_perDiet,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_prevalence_c.xlsx")
+
+
+
+```
+
+# Interactive plots of mutation distribution along the genome
+
+## all Mutations
+```{r}
+
+library(plotly)
+
+# get mouse nubmers as numbers
+d84_long_annot$mouse_no<-as.factor(substr(d84_long_annot$mouse,2,3))
+
+#reoder diet factor levels
+d84_long_annot$diet<-factor(d84_long_annot$diet,levels=c("SD","WD","AD"))
+  
+p_chr<-ggplot(d84_long_annot[d84_long_annot$seq_id=="chromosome",],aes(x=position,y=frequency,color=mouse_no))+
+  geom_point(aes(label=gene,label2=description,label3=locus_name))+
+  scale_color_viridis_d("Mouse")+
+  facet_grid(diet~seq_id,scales = "free_x")+theme_cowplot()+background_grid(major="xy")
+
+ggplotly(p_chr)
+
+p_plas<-ggplot(d84_long_annot[d84_long_annot$seq_id=="plasmid",],aes(x=position,y=frequency,color=mouse_no))+
+  geom_point(aes(label=gene,label2=description))+
+  facet_grid(diet~seq_id,scales = "free_x")+theme_cowplot()+background_grid(major="xy")+
+  scale_color_viridis_d("Mouse")
+
+
+ggplotly(p_plas)
+```
+
+## parallel Mutations
+```{r}
+
+library(plotly)
+
+# get mouse nubmers as numbers
+d84_long_parallel$mouse_no<-as.factor(substr(d84_long_parallel$mouse,2,3))
+
+#reoder diet factor levels
+d84_long_parallel$diet<-factor(d84_long_parallel$diet,levels=c("SD","WD","AD"))
+  
+p_chr<-ggplot(d84_long_parallel[d84_long_parallel$seq_id=="chromosome",],aes(x=position,y=frequency,color=mouse_no))+
+  geom_point(aes(label=gene,label2=description,label3=locus_name))+
+  scale_color_viridis_d("Mouse")+
+  facet_grid(diet~seq_id,scales = "free_x")+theme_cowplot()+background_grid(major="xy")
+
+ggplotly(p_chr)
+
+p_plas<-ggplot(d84_long_parallel[d84_long_parallel$seq_id=="plasmid",],aes(x=position,y=frequency,color=mouse_no))+
+  geom_point(aes(label=gene,label2=description))+
+  facet_grid(diet~seq_id,scales = "free_x")+theme_cowplot()+background_grid(major="xy")+
+  scale_color_viridis_d("Mouse")
+
+
+ggplotly(p_plas)
+```
+
+## plot number of parallel mutations per mouse at day 84 - Fig. 2B
+
+
+
+```{r,fig.width=10,fig.height=6}
+
+
+# create data for the parallel mutations
+d84_parallel_mutationCount<-d84_long_parallel %>% group_by(mouse,diet) %>% summarize(mutation_tot_para=n())
+
+d84_parallel_mutationCount$diet<-factor(d84_parallel_mutationCount$diet,levels=c("SD","WD","AD"))
+
+p<-ggplot(d84_parallel_mutationCount,aes(x=diet,y=mutation_tot_para,fill=diet))+
+  geom_boxplot(outlier.shape = NA, alpha=0.6)+
+  geom_quasirandom(aes(label=mouse),shape=21,size=3)+
+  xlab("Diet")+ylab("Mutation count (parallel)")+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  theme(legend.position = "none")+
+  ylim(0,50)
+
+p
+
+```
+
+
+
+
+# plots of parallel mutational targets as a circular genome - Fig. 2C
+
+
+
+```{r,fig.width=10,fig.height=10}
+
+
+# prevalence of parallel mutations per gene per diet for genes mutated in more than 2 mice AND with mutation freqs>0.05
+
+d84_long_parallel_freqGene<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+
+
+d84_parallelMutationCounts_perDiet_2mice0.05<-d84_long_parallel_freqGene %>%
+  filter(freq_gene>0.05) %>%
+  group_by(seq_id,gene,locus_name,description,diet) %>% 
+  summarize(mouse_no=length(mouse)) %>% tidyr::spread(.,diet,mouse_no)
+
+d84_parallelMutationCounts_perDiet_2mice0.05[is.na(d84_parallelMutationCounts_perDiet_2mice0.05)]<-0
+
+d84_parallelMutationCounts_perDiet_2mice0.05<-d84_parallelMutationCounts_perDiet_2mice0.05 %>% mutate(tot_mice = rowSums(across(AD:WD)))
+
+d84_parallelMutationCounts_perDiet_2mice0.05<-d84_parallelMutationCounts_perDiet_2mice0.05 %>% filter(tot_mice>=2)
+###########
+
+
+# create long format data frame from prevalence of parallel mutations per gene per diet. This will be useful later
+d84_parallelMutationCounts_perDiet_long<- d84_parallelMutationCounts_perDiet_2mice0.05[1:7] %>% gather(.,key=diet,value = count,AD:WD)
+
+#add a column for just presence/absence of mutations
+d84_parallelMutationCounts_perDiet_long$presenceAbsence<-ifelse(d84_parallelMutationCounts_perDiet_long$count==0,0,1)
+
+
+# add a column for average position of mutations in a gene, to get the position of each gene
+d84_parallelMutationCounts_perDiet_long<-left_join(d84_parallelMutationCounts_perDiet_long,d84_long_parallel %>% group_by(gene) %>% summarise(position_av=round(mean(position),0)))
+
+
+# create mock clone and add its info to data frame. This is useful to edit the size of the central white circle
+newrow<-data.frame(seq_id=NA,gene=NA,locus_name=NA,description=NA,diet="A",count=0,presenceAbsence=0,position_av=0)
+d84_parallelMutationCounts_perDiet_long<-bind_rows(d84_parallelMutationCounts_perDiet_long,newrow)
+
+# transform diet to factor
+d84_parallelMutationCounts_perDiet_long$diet<-as.factor(d84_parallelMutationCounts_perDiet_long$diet)
+
+
+#create a new mock column to define the y position of each of the diets
+index<-c("A","SD","WD","AD")
+mock_y <- c(20,seq(from=35,to=45,by=5))
+df_index<-data.frame(index,mock_y)
+
+d84_parallelMutationCounts_perDiet_long<-left_join(d84_parallelMutationCounts_perDiet_long,df_index,by=c("diet"="index"))
+
+#create a new dataframe with just the mutations that are present in each clone and bind the mock clone "A"
+d84_parallelMutationCounts_perDiet_long_ch<-d84_parallelMutationCounts_perDiet_long[d84_parallelMutationCounts_perDiet_long$presenceAbsence==1 & d84_parallelMutationCounts_perDiet_long$seq_id=="chromosome",]
+d84_parallelMutationCounts_perDiet_long_ch<-rbind(d84_parallelMutationCounts_perDiet_long_ch,d84_parallelMutationCounts_perDiet_long[d84_parallelMutationCounts_perDiet_long$diet=="A",])
+
+#make position_av numeric
+d84_parallelMutationCounts_perDiet_long_ch$position_av<-as.numeric(d84_parallelMutationCounts_perDiet_long_ch$position_av)
+
+
+
+# create a data frame that gets a unique position per gene and add BT_ gene names
+parallelGenes_position_dietGrouped<-d84_parallelMutationCounts_perDiet_long_ch %>% subset(presenceAbsence==1) %>% group_by(gene,position_av) %>% summarize(diet_g=paste(diet, collapse = "&"))
+
+#format text angle
+parallelGenes_position_dietGrouped$max_mock_y<-max(d84_parallelMutationCounts_perDiet_long_ch$mock_y)
+parallelGenes_position_dietGrouped$angle<-90 - 360 * (as.numeric(parallelGenes_position_dietGrouped$position_av))/6272440
+parallelGenes_position_dietGrouped$angle2 <- ifelse(parallelGenes_position_dietGrouped$angle < -90, parallelGenes_position_dietGrouped$angle+180, parallelGenes_position_dietGrouped$angle)
+parallelGenes_position_dietGrouped$hjust <- ifelse( parallelGenes_position_dietGrouped$angle < -90, 1, 0)
+
+# add BT gene names
+parallelGenes_position_dietGrouped<-left_join(parallelGenes_position_dietGrouped,d84_parallelMutationCounts_perDiet_long_ch[1:3])
+
+#shorten TDA gene names
+parallelGenes_position_dietGrouped$locus_name<-str_replace(parallelGenes_position_dietGrouped$locus_name,"TDA1000_","TDA_")
+
+#make position_av numeric
+parallelGenes_position_dietGrouped$position_av<-as.numeric(parallelGenes_position_dietGrouped$position_av)
+
+
+
+#create plot
+p_gen<-ggplot()+
+  geom_rect(data=df_index,aes(xmin=0,xmax=6272440,ymin=mock_y-1.5,ymax=mock_y+1.5,fill=index),alpha=0.3)+
+  geom_segment(data=d84_parallelMutationCounts_perDiet_long_ch,
+               aes(y=mock_y-1.5,yend=mock_y+1.5,x=position_av,xend=position_av,color=diet),size=1)+
+  geom_segment(data=parallelGenes_position_dietGrouped,
+               aes(y=max_mock_y+2,yend=max_mock_y+4,x=position_av,xend=position_av))+
+  scale_y_continuous(expand = c(0.3, 0.3))+
+  coord_polar()+
+  geom_text(data=parallelGenes_position_dietGrouped,
+            aes(label=locus_name,x=position_av, y=max_mock_y+5, hjust=hjust),
+            angle=parallelGenes_position_dietGrouped$angle2,size=3)+
+  scale_x_continuous(position = "top")+
+  scale_fill_manual(values=c("A"="white","SD"="#4575b4","WD"="#d73027","AD"="#878787"),guide=FALSE)+
+  scale_color_manual(values=c("A"="white","SD"="#4575b4","WD"="#d73027","AD"="#878787"),guide=FALSE)+
+  cowplot::theme_nothing()
+
+p_gen
+```
+
+
+
+# MUTATION DIFFERENTIAL PREVALENCE
+### test for differences in the prevalence of mutational targets between diets
+
+For each gene, I fit a binomial GLM to the presence/absence data of mutations in each population. I used bias reduction GLM to avoid problems of quasi-separation that I was getting with other approaches. I used emmeans to estimate pairwise differences between diets.
+
+**Results table**  
+
+In the table below P.val_diet corresponds to the effect of diet on mutation prevalence. All other values are the results of emmeans for pairwise comparison between diets.
+
+#### Vizualize mutation presence/absence per gene
+```{r,fig.width=12,fig.height=12}
+
+# create presence/absence dataframe
+d84_long_parallel_freqGene$presenceAbsence<-ifelse(d84_long_parallel_freqGene$freq_gene==0,0,1)
+d84_long_freqGene_parallel_presAbs<-d84_long_parallel_freqGene[c(1:5,11)] %>% distinct() %>% spread(.,key=sample,value=presenceAbsence) %>%
+  gather(.,key=sample,value=presenceAbsence,D84_C1:D84_M9) %>% separate(sample,c("day","mouse"),sep="_",remove=F)
+
+
+#create a column for day
+d84_long_freqGene_parallel_presAbs$day<-str_remove(d84_long_freqGene_parallel_presAbs$day,"D")
+
+# replace all NAs in the presenceAbsence column by zeroes
+d84_long_freqGene_parallel_presAbs$presenceAbsence[is.na(d84_long_freqGene_parallel_presAbs$presenceAbsence)] <- 0
+
+#create a treatment column, a table to match these one letter codes to the diet codes and do the match with left_join
+d84_long_freqGene_parallel_presAbs$trt<-str_sub(d84_long_freqGene_parallel_presAbs$mouse,1,1)
+
+trt_diet<-data.frame(trt=c("C","M","F"),diet=c("WD","SD","AD"))
+
+d84_long_freqGene_parallel_presAbs<-left_join(d84_long_freqGene_parallel_presAbs,trt_diet)
+
+# reofrder factor levels
+d84_long_freqGene_parallel_presAbs$diet<-factor(d84_long_freqGene_parallel_presAbs$diet,
+                                                levels=c("SD","WD","AD"))
+
+# make plot
+ggplot(d84_long_freqGene_parallel_presAbs,aes(x=mouse,y=locus_name,fill=as.factor(presenceAbsence)))+
+  geom_tile()+facet_wrap(~diet,scales="free_x")+
+  scale_fill_manual(values=c("white","black"),name="Mutation presence/absence")+
+  theme(legend.position = "top",axis.text.x = element_text(angle=90))
+
+```
+
+
+```{r}
+
+#load libraries
+library(brglm2)
+
+# create empty data frame for the data
+df_presAbs_gene<-setNames(data.frame(matrix(ncol = 8, nrow = 0)), c("gene", "P.val_diet", "contrast", "estimate",
+                                                                       "SE", "df", "t.ratio", "p.value"))
+#run for loop where one GLM is fitted to each gene
+for (i in unique(d84_long_freqGene_parallel_presAbs$gene)) { 
+dat <- d84_long_freqGene_parallel_presAbs %>% filter(gene %in% i) %>% droplevels()
+gene<-i
+if(berryFunctions::is.error(assign(paste0("mod","_",i),glm(presenceAbsence~diet,data=dat, family=binomial(),method = "brglmFit")))){
+vals<-data.frame(cbind(gene,P.val_diet=NA,contrast=NA,estimate=NA,SE=NA,df=NA,t.ratio=NA,p.value=NA))  
+} else{
+assign(paste0("mod","_",i),glm(presenceAbsence~diet,data=dat, family=binomial(),method = "brglmFit"))
+mod<-get(paste0("mod","_",i))
+moda<-anova(mod,test="LRT")
+P.val_diet<-moda$`Pr(>Chi)`[2]
+mode<-emmeans::emmeans(mod,pairwise~diet,adjust="none")
+mode<-as.data.frame(mode$contrasts)
+gene<-rep(gene,dim(mode)[1])
+P.val_diet<-rep(P.val_diet,dim(mode)[1])
+vals<-data.frame(cbind(gene,P.val_diet,mode))  
+pdf(file=paste0("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/modelPlots_differentialAbundance_prevalence_c/",str_replace(i,"/","_"),".pdf"))
+par(mfrow=c(2,2))
+plot(mod)
+title(i)
+dev.off()
+}
+df_presAbs_gene<-rbind(df_presAbs_gene,vals)
+}
+
+# convert columns to numeric
+df_presAbs_gene<-df_presAbs_gene %>% mutate_at(c(2,4:8),as.numeric)
+
+#get just the p-values from the fitted model and do FDR correction on those
+df_dietDifferentialMutationalTargets_fdr<- df_presAbs_gene %>% 
+  select(gene,P.val_diet) %>% distinct()
+
+df_dietDifferentialMutationalTargets_fdr$P.val_diet_corr<-p.adjust(p=df_dietDifferentialMutationalTargets_fdr$P.val_diet,method = "fdr")
+
+#merge with the table that has the pairwise diet tests
+
+df_dietDifferentialMutationalTargets_fdr<-left_join(df_dietDifferentialMutationalTargets_fdr,
+                                                    df_presAbs_gene %>% 
+                                                      select(gene,contrast,p.value) %>%
+                                                      spread(.,contrast,p.value))
+
+
+
+# sort by the  p-value and gene
+
+df_dietDifferentialMutationalTargets_fdr<-df_dietDifferentialMutationalTargets_fdr %>% arrange(gene)
+
+#interactive/downloadable table
+DT::datatable(data = df_dietDifferentialMutationalTargets_fdr, extensions = "Buttons", 
+          options = list(dom = "Blfrtip", buttons = c("csv","excel")))
+
+# writexl::write_xlsx(df_dietDifferentialMutationalTargets_fdr,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutationalTargets_fdr_c.xlsx")
+
+
+
+```
+
+
+## Heatmap - Fig. 3C
+
+
+
+Create table with just significant genes and add a new column with the group(s) in which a particular gene is more mutated: column group_enriched. The groups in this column were defined in the folllowing way:
+- Mutational targets enriched for a single diet if the mutational target is mutated in a significantly higher number of mice in that diet, relative to the other two (emmeans p-value<0.05; e.g. mutations in BT_4247 are significantly more prevalent in WD then either SD or AD, but there is no difference between SD and AD)
+- Mutational targets enriched for a two diets if the mutational target is mutated in a significantly less (emmeans p-value<0.05) in one diet relative to the other two and there is no significant difference between the later pair (e.g. mutations in BT_0370 are significantly less prevalent in WD relative to AD or SD, but there was no difference between AD and SD)  
+
+However, there were a few mutational targets in which only one or none of the diet pairwise comparisons was significant. In these cases, these were attributed to enriched groups if the group with the highest number of mutated mice, had at least two times the number of mice than any of the other groups. Such genes were:  
+
+- BT_1754: only detected in the SD group (n=4) - enriched for SD   
+- BT_1725/BT_1726: WD = 6 mice, SD = 3 and AD = 0 - enriched for WD   
+- BT_1657:  WD = 6 mice, SD = 1 and AD = 2 - enriched for WD   
+- BT_0623: AD = 8 mice, SD = 3, WD = 1 - enriched for AD  
+- BT_4295: only detected in the AD group (n=5) - enriched for AD   
+- BT_0366: AD = 7 mice, SD = 2, WD = 0 - enriched for AD  
+- BT_0317: AD = 8 mice, SD = 6, WD = 0 - enriched for AD&SD  
+
+
+#### Prepare dataframe for plot
+```{r}
+
+# select only significant genes
+df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr %>% subset(P.val_diet<0.05)
+
+
+# code significant differences as 1 and non-significant as 0
+df_dietDifferentialMutationalTargets_fdr_p0.05$sig_P.diet<-ifelse(df_dietDifferentialMutationalTargets_fdr_p0.05$P.val_diet<=0.05,1,0)
+df_dietDifferentialMutationalTargets_fdr_p0.05$sig_SDAD<-ifelse(df_dietDifferentialMutationalTargets_fdr_p0.05$`SD - AD`<=0.05,1,0)
+df_dietDifferentialMutationalTargets_fdr_p0.05$sig_SDWD<-ifelse(df_dietDifferentialMutationalTargets_fdr_p0.05$`SD - WD`<=0.05,1,0)
+df_dietDifferentialMutationalTargets_fdr_p0.05$sig_WDAD<-ifelse(df_dietDifferentialMutationalTargets_fdr_p0.05$`WD - AD`<=0.05,1,0)
+
+
+# create significance code and add new column with enrichment type
+df_dietDifferentialMutationalTargets_fdr_p0.05$sig_pairs<-paste0(df_dietDifferentialMutationalTargets_fdr_p0.05$sig_P.diet,
+                                                            df_dietDifferentialMutationalTargets_fdr_p0.05$sig_SDAD,
+                                                            df_dietDifferentialMutationalTargets_fdr_p0.05$sig_SDWD,
+                                                            df_dietDifferentialMutationalTargets_fdr_p0.05$sig_WDAD)
+
+
+
+# create column indicating the group that is enriched in mutations for each gene
+
+df_dietDifferentialMutationalTargets_fdr_p0.05$group_enriched<-c("AD","AD","WD&AD","AD","WD","WD","AD","SD&AD",
+                                                                 "AD","AD","SD&AD","AD","WD","WD","SD")
+
+
+# create two new columns with gene names (for when mutations are in intergenic regions)
+df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% separate(gene, c("gene_1", "gene_2"),sep="/",remove=F)
+
+#merge data frame of mutations with annotations (for gene 1)
+
+df_dietDifferentialMutationalTargets_fdr_p0.05<-left_join(df_dietDifferentialMutationalTargets_fdr_p0.05,annotation,by=c("gene_1"="locus_tag_prokka"))
+
+df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% rename_at(15, ~paste0(., "_1"))
+
+#merge data frame of mutations with annotations (for gene 2)
+
+df_dietDifferentialMutationalTargets_fdr_p0.05<-left_join(df_dietDifferentialMutationalTargets_fdr_p0.05,annotation,by=c("gene_2"="locus_tag_prokka"))
+
+df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% rename_at(16, ~paste0(., "_2"))
+
+
+
+# merge locus that are intergenic mutations
+df_dietDifferentialMutationalTargets_fdr_p0.05$locus_name<-ifelse(is.na(df_dietDifferentialMutationalTargets_fdr_p0.05$locus_tag_db_2),df_dietDifferentialMutationalTargets_fdr_p0.05$locus_tag_db_1,
+                                  paste0(df_dietDifferentialMutationalTargets_fdr_p0.05$locus_tag_db_1,"/",df_dietDifferentialMutationalTargets_fdr_p0.05$locus_tag_db_2))
+
+
+
+
+# writexl::write_xlsx(df_dietDifferentialMutationalTargets_fdr_p0.05,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutationalTargets_fdr_p0.05_c.xlsx")
+
+
+
+```
+
+
+```{r}
+
+d84_long_parallel_freqGene<-read_excel("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+
+# add corrected frequency for those that go above 1
+d84_long_parallel_freqGene$freq_gene_corr<-ifelse(d84_long_parallel_freqGene$freq_gene>1,1,d84_long_parallel_freqGene$freq_gene)
+
+# get zero values in the dataframe so that these can be shown in the heatmap
+
+d84_long_parallel_freqGene_incl0<-d84_long_parallel_freqGene[c(1:5,11)] %>% distinct() %>% spread(.,key=sample,value=freq_gene_corr) %>%
+  gather(.,key=sample,value=freq_gene_corr,D84_C1:D84_M9) %>% separate(sample,c("day","mouse"),sep="_",remove=F)
+
+#create a column for day
+d84_long_parallel_freqGene_incl0$day<-str_remove(d84_long_parallel_freqGene_incl0$day,"D")
+
+# replace all NAs in the presenceAbsence column by zeroes
+d84_long_parallel_freqGene_incl0$freq_gene_corr[is.na(d84_long_parallel_freqGene_incl0$freq_gene_corr)] <- 0
+
+#create a treatment column, a table to match these one letter codes to the diet codes and do the match with left_join
+d84_long_parallel_freqGene_incl0$trt<-str_sub(d84_long_parallel_freqGene_incl0$mouse,1,1)
+
+trt_diet<-data.frame(trt=c("C","M","F"),diet=c("WD","SD","AD"))
+
+d84_long_parallel_freqGene_incl0<-left_join(d84_long_parallel_freqGene_incl0,trt_diet)
+
+# reorder factor levels
+d84_long_parallel_freqGene_incl0$diet<-factor(d84_long_parallel_freqGene_incl0$diet,
+                                                levels=c("SD","WD","AD"))
+
+
+
+```
+
+
+
+```{r}
+
+
+
+#filter mutation frequency table for genes that were differentially mutated
+d84_long_parallel_freqGene_incl0_sub<-d84_long_parallel_freqGene_incl0 %>% subset(gene %in% df_dietDifferentialMutationalTargets_fdr_p0.05$gene)
+
+d84_long_parallel_freqGene_incl0_sub<-left_join(d84_long_parallel_freqGene_incl0_sub,df_dietDifferentialMutationalTargets_fdr_p0.05)
+
+
+#create new column that discritizes mutation frequency (for better vizualization in the heatmap)
+d84_long_parallel_freqGene_incl0_sub$freq_gene_corr_factor<-cut(d84_long_parallel_freqGene_incl0_sub$freq_gene_corr,breaks=c(-1,seq(0,1,0.1)),
+                             labels=c("0","0-0.1","0.1-0.2","0.2-0.3","0.3-0.4","0.4-0.5",
+                                      "0.5-0.6","0.6-0.7","0.7-0.8","0.8-0.9","0.9-1"))
+
+# set the order of the enriched groups
+d84_long_parallel_freqGene_incl0_sub$group_enriched<-factor(d84_long_parallel_freqGene_incl0_sub$group_enriched,
+                                                  levels=c("SD","WD","AD","SD&AD","WD&AD",NA))
+
+# create a new mouse column so that mice can be numerically ordered
+d84_long_parallel_freqGene_incl0_sub$mouse2<-str_sub(d84_long_parallel_freqGene_incl0_sub$mouse,start = 2,end = 3) %>% 
+  as.numeric() %>% as.factor()
+
+
+library(rcartocolor)
+
+
+ggplot(d84_long_parallel_freqGene_incl0_sub,
+       aes(y=reorder(locus_name,-P.val_diet),x=mouse2,fill=freq_gene_corr_factor))+
+  geom_tile(color="white")+
+  scale_fill_manual(values=c("#dadada",colorRampPalette(carto_pal(7,"Sunset"))(10)),name="Mutation Frequency")+
+  ylab("Gene")+
+  facet_grid(group_enriched~diet,scales = "free",space="free")+
+  theme_minimal()+
+  theme(axis.text.x = element_blank(),axis.title = element_blank(),axis.ticks = element_blank(),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),strip.background = element_rect(fill = "#f0f0f0",color = "white"))
+
+```
+
+
+# Mutational diversity
+
+### Maximum frequency of parallel mutations
+
+
+```{r}
+# Parallel Mutational targets
+d84_long_parallel_freqGene<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+
+d84_long_parallel_freqGene$freq_gene_corr<-ifelse(d84_long_parallel_freqGene$freq_gene>1,1,d84_long_parallel_freqGene$freq_gene)
+
+
+d84_long_parallel_freqGene$diet<-factor(d84_long_parallel_freqGene$diet,levels=c("SD","WD","AD"))
+
+
+d84_long_parallel_freqGene_max<-d84_long_parallel_freqGene %>% group_by(mouse,diet) %>% summarise(max_f=max(freq_gene_corr))
+
+p1<- d84_long_parallel_freqGene_max %>%
+  ggplot(aes(x=diet,y=max_f,fill=diet))+geom_boxplot(outlier.shape = NA, alpha=0.6)+
+  ggbeeswarm::geom_quasirandom(shape=21,size=3)+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  xlab("Diet")+ylab("Maximum Mutation Frequency")+
+  scale_y_continuous(breaks=seq(0,1,0.2))+
+  cowplot::theme_cowplot()+cowplot::background_grid(major="y")+
+  theme(legend.position = "none")
+
+
+m1<-lm(max_f~diet,data=d84_long_parallel_freqGene_max)
+anova(m1)
+#plot(m1)
+
+emmeans::emmeans(m1,pairwise~diet)
+```
+
+### Shannon index
+```{r}
+d84_long_parallel_freqGene_mat<-d84_long_parallel_freqGene %>% select(mouse,freq_gene_corr,locus_name) %>% pivot_wider(names_from = locus_name,values_from = freq_gene_corr,values_fill = 0)
+
+
+d84_long_parallel_freqGene_mat<-as.data.frame(d84_long_parallel_freqGene_mat)
+rownames(d84_long_parallel_freqGene_mat)<-d84_long_parallel_freqGene_mat$mouse
+d84_long_parallel_freqGene_mat<-d84_long_parallel_freqGene_mat[-1]
+shannon_df<-vegan::diversity(as.matrix(d84_long_parallel_freqGene_mat), index = "shannon") %>% as.data.frame()
+colnames(shannon_df)<-"shannon"
+
+shannon_df$mouse<-rownames(shannon_df)
+shannon_df<-left_join(shannon_df,d84_long_annot %>% select(mouse,diet) %>% distinct())
+
+p2<-ggplot(shannon_df,aes(x=diet,y=shannon,fill=diet))+geom_boxplot(outlier.shape = NA, alpha=0.6)+
+  ggbeeswarm::geom_quasirandom(shape=21,size=3)+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  xlab("Diet")+ylab("Shannon Index")+
+  cowplot::theme_cowplot()+cowplot::background_grid(major="y")+
+  theme(legend.position = "none")
+
+
+
+m1<-lm(shannon~diet,data=shannon_df)
+anova(m1)
+#plot(m1)
+
+emmeans::emmeans(m1,pairwise~diet)
+```
+
+
+### Final plot. For Fig. 3A-B
+```{r}
+p1+p2
+```
+
+
+## test for differentially abundant mutations in the parallel genes
+here, we testesd whether some mutations (of each specific gene) were differentially pervalent.  
+This was tested for all parallel genes that were mutated in at least 1/3 of the mice (i.e. 14)
+```{r}
+
+
+#load prevalence table
+
+d84_parallelMutationCounts_perDiet<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_prevalence_c.xlsx")
+
+prevalentGenes<-d84_parallelMutationCounts_perDiet %>% gather(.,key=diet,value=count,AD:WD) %>%
+  group_by(gene) %>% summarize(no_mice_mutated=sum(count)) %>% subset(no_mice_mutated>=14)
+
+prevalentGenes<-unique(prevalentGenes$gene)
+
+# load mutation frequency table
+d84_long_parallel<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_c.xlsx")
+
+
+# get zero values in the dataframe 
+
+d84_long_parallel<-d84_long_parallel[c(1:6,8,11,14)] %>% distinct() %>% spread(.,key=sample,value=frequency) %>%
+  gather(.,key=sample,value=frequency,D84_C1:D84_M9) %>% separate(sample,c("day","mouse"),sep="_",remove=F)
+
+
+#create a column for day
+d84_long_parallel$day<-str_remove(d84_long_parallel$day,"D")
+
+# replace all NAs in the presenceAbsence column by zeroes
+d84_long_parallel$frequency[is.na(d84_long_parallel$frequency)] <- 0
+
+#create a treatment column, a table to match these one letter codes to the diet codes and do the match with left_join
+d84_long_parallel$trt<-str_sub(d84_long_parallel$mouse,1,1)
+
+trt_diet<-data.frame(trt=c("C","M","F"),diet=c("WD","SD","AD"))
+
+d84_long_parallel<-left_join(d84_long_parallel,trt_diet)
+
+# reofrder factor levels
+d84_long_parallel$diet<-factor(d84_long_parallel$diet,
+                                                levels=c("SD","WD","AD"))
+
+# add presence-absence column
+d84_long_parallel$presenceAbsence<-ifelse(d84_long_parallel$frequency==0,0,1)
+
+#filter to keep only prevalent genes
+d84_long_parallel_prev<-d84_long_parallel %>% subset(gene %in% prevalentGenes)
+
+
+```
+
+Plot of the tested genes
+```{r,fig.width=12,fig.height=12}
+
+d84_long_parallel_prev_count<-d84_long_parallel_prev %>% group_by(seq_id,position,mutation,annotation,gene,locus_name,seqid_position_mutation_gene,diet) %>%
+  summarize(count=sum(presenceAbsence))
+
+
+
+ggplot(d84_long_parallel_prev_count,aes(x=annotation,y=count,fill=diet))+
+  geom_bar(stat="identity",position = "dodge")+
+  facet_wrap(~locus_name,scales = "free_x")+
+  theme_cowplot()+
+  theme(axis.text.x = element_blank(),axis.title.x = element_blank(),axis.ticks.x = element_blank())+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  scale_y_continuous(breaks=seq(0,10,2))+
+  background_grid(major="xy")+
+  ylab("# Mice with mutation")+
+  xlab("Mutation")
+
+library(ggbeeswarm)
+
+ggplot(d84_long_parallel_prev[d84_long_parallel_prev$frequency>0,],aes(x=annotation,y=frequency,fill=diet))+
+  geom_quasirandom(shape=21)+
+  facet_wrap(~locus_name,scales = "free")+
+  theme_cowplot()+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  theme(axis.text.x = element_blank(),axis.title.x = element_blank(),axis.ticks.x = element_blank())+
+  background_grid(major="xy")+
+  ylab("Mutation frequency")+
+  xlab("Mutation")
+
+```
+
+The only gene that is significant is  **BT_0867**
+
+
+```{r}
+
+#load libraries
+library(tidyverse)
+library(brglm2)
+
+# create empty data frame for the data
+df_presAbs_gene<-setNames(data.frame(matrix(ncol = 6, nrow = 0)), c("gene", "df","Deviance","resid_df","resid_dev","P.val_dietMutation"))
+
+#run for loop where one GLM is fitted to each gene
+for (i in unique(d84_long_parallel_prev$gene)) { 
+dat <- d84_long_parallel_prev %>% filter(gene %in% i) %>% droplevels()
+gene<-i
+if(berryFunctions::is.error(assign(paste0("mod","_",i),glm(presenceAbsence~diet*seqid_position_annotation_gene,data=dat, family=binomial(),method = "brglmFit")))){
+vals<-data.frame(cbind(gene,df=NA,Deviance=NA,resid_df=NA,resid_dev=NA,P.val_dietMutation=NA))  
+} else{
+assign(paste0("mod","_",i),glm(presenceAbsence~diet*seqid_position_annotation_gene,data=dat, family=binomial(),method = "brglmFit"))
+mod<-get(paste0("mod","_",i))
+moda<-anova(mod,test="LRT")
+
+df<-moda$Df[4]
+Deviance<-moda$Deviance[4]
+resid_df<-moda$`Resid. Df`[4]
+resid_dev<-moda$`Resid. Dev`[4]
+P.val_dietMutation<-moda$`Pr(>Chi)`[4]
+vals<-data.frame(cbind(gene,df,Deviance,resid_df,resid_dev,P.val_dietMutation))  
+
+
+pdf(file=paste0("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/modelPlots_differentialAbundanceMutations_prevalence/",str_replace(i,"/","_"),".pdf"))
+par(mfrow=c(2,2))
+plot(mod)
+title(i)
+dev.off()
+}
+df_presAbs_gene<-rbind(df_presAbs_gene,vals)
+}
+
+# convert columns to numeric
+df_presAbs_gene<-df_presAbs_gene %>% mutate_at(c(2:6),as.character) %>% mutate_at(c(2:6),as.numeric)
+
+
+
+#interactive/downloadable table
+DT::datatable(data = left_join(df_presAbs_gene,d84_long_parallel_prev[5:6] %>% distinct()), 
+              extensions = "Buttons", options = list(dom = "Blfrtip", buttons = c("csv","excel")))
+
+
+```
+
+## Plots for Fig. 7A-B
+```{r}
+ggplot(d84_long_parallel_prev[d84_long_parallel_prev$frequency>0 & d84_long_parallel_prev$locus_name=="BT_0867",],
+       aes(x=factor(word(annotation,start = 1,end=1),level=c("R988C","N981S","T756I","T756A","P678S")),y=frequency,fill=diet))+
+  geom_quasirandom(shape=21,dodge.width = 0.8,size=2)+
+  facet_wrap(~locus_name,scales = "free")+
+  theme_cowplot()+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  ylab("Mutation frequency")+
+  xlab("Mutation")+
+  ylim(0,1)
+
+
+ggplot(d84_long_parallel_prev_count[d84_long_parallel_prev_count$locus_name=="BT_0867",],
+       aes(x=factor(word(annotation,start = 1,end=1),level=c("R988C","N981S","T756I","T756A","P678S")),y=count,fill=diet))+
+  geom_col(width = 0.6, position = position_dodge(0.9),alpha=0.7)+
+  facet_wrap(~locus_name,scales = "free_x")+
+  theme_cowplot()+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  scale_y_continuous(limits=c(0,14),breaks=seq(0,14,2))+
+  ylab("# Mice with mutation")+
+  xlab("Mutation")
+
+```
+
+```{r}
+d84_long_parallel_freqGene<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+
+d84_long_parallel_freqGene$freq_gene_corr<-ifelse(d84_long_parallel_freqGene$freq_gene>1,1,d84_long_parallel_freqGene$freq_gene)
+
+d84_long_parallel_freqGene$diet<-factor(d84_long_parallel_freqGene$diet,levels=c("SD","WD","AD"))
+
+ggplot(d84_long_parallel_freqGene[d84_long_parallel_freqGene$locus_name %in% c("BT_0867","BT_2689"),],
+       aes(x=locus_name,y=freq_gene_corr,fill=diet))+
+  geom_quasirandom(shape=21,dodge.width = 0.8,size=2)+
+  theme_cowplot()+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  ylab("Mutation frequency")+
+  xlab("Gene")+
+  ylim(0,1)
+
+
+```
+
+```{r}
+d84_long<-readxl::read_excel("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_woutLowConfMutations_withAnnotations_c.xlsx")
+
+
+d84_long_parallel_freqGene_count_fluctGenes<-d84_long_parallel_freqGene %>% 
+  filter(locus_name %in% c("BT_0867","BT_2689")) %>% 
+  group_by(diet,locus_name) %>% 
+  summarize(count=n()) 
+
+
+d84_long_parallel_freqGene_count_fluctGenes<-bind_rows(d84_long_parallel_freqGene_count_fluctGenes,data.frame("diet"="WD","locus_name"="BT_2689","count"=0))
+
+
+
+d84_long_parallel_freqGene_count_fluctGenes %>% 
+  ggplot(aes(x=locus_name,y=count,fill=diet))+
+  geom_col(width = 0.6, position = position_dodge(),alpha=0.7)+
+  theme_cowplot()+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  scale_y_continuous(limits=c(0,14),breaks=seq(0,14,2))+
+  ylab("# Mice with mutation")+
+  xlab("Mutation")
+
+```
+

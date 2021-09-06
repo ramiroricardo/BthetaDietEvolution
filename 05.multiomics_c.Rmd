@@ -1,0 +1,2198 @@
+---
+title: "Integrative Omics analysis of B. theta evolution and ecology in the mouse gut"
+author: "Ricardo Ramiro"
+date: "10/12/2020"
+output: 
+  html_document:
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+## unless noted all analysis was run on the Buenos Aires desktop
+
+knitr::opts_chunk$set(echo=TRUE, 
+                      message=FALSE, 
+                      error = TRUE,
+                      warning=FALSE, 
+                      paged.print=FALSE, 
+                      fig.align = "center")
+
+knitr::opts_hooks$set(eval = function(options) {
+  if (options$engine == "bash") {
+    options$eval <- FALSE
+  }
+  options
+})
+
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(mixOmics)
+library(microbiome)
+library(nlme)
+library(phyloseq)
+library(qiime2R)
+library(cowplot)
+library(patchwork)
+library(vegan)
+library(Hmisc)
+library(tidygraph)
+library(ggraph)
+library(concaveman)
+library(igraph)
+library(ggforce)
+library(heatmaply)
+
+
+
+
+
+source("functions.R")
+```
+
+# Analysis of day 84 data
+
+I am using the following data:  
+- Mutations: mutation frequency per gene for parallel genes (i.e. genes that were mutated in at least two mice and for which the frequency > 5% in one of the mice)  
+- Metabolites: raw data  
+- Microbiome: ASVs filtered such that these appear in at least two mice at > 5% relative abundance  
+
+### Prepare data for halla 
+
+```{r, prepare gene level mutation data}
+
+###parallel mutations (frequency per gene)
+#load data
+d84_para_gene<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+
+#correct maximum frequency to 1, as some genes are mutated multiple times
+d84_para_gene$freq_gene_corr<-ifelse(d84_para_gene$freq_gene>1,1,d84_para_gene$freq_gene)
+
+#transform to wide format and sort columns by name
+d84_para_gene_wide<-d84_para_gene %>% dplyr::select(locus_name,sample,freq_gene_corr) %>%
+  spread(.,key=sample,value=freq_gene_corr,fill=0) 
+
+#change sample header name for input into halla
+d84_para_gene_halla<-d84_para_gene_wide %>% rename("#"=locus_name) 
+
+#save file
+#write_tsv(d84_para_gene_halla,"analysis/multiomics/halla/d84_paralleMutations_freqPerGene_halla_c.tsv",quote_escape = "none")
+
+```
+
+```{r, prepare metabolome data}
+### metabolites
+# load data
+metab<-read_xlsx("data/suppl_table_metab.xlsx",sheet=2)
+
+mice<-read_csv("data/mouse_codes.csv")
+
+# get old name ids, which are the same that were used for the genomics and the microbiome
+metab<-left_join(mice,metab,by=c("mouse_id_new"="Mouse_ID"))
+
+# reformat for halla
+metab_d84_halla<- metab %>% 
+  subset(Day==84) %>%
+  dplyr::select(mouse_id_old,Acetate:Urea) %>%
+  pivot_longer(!mouse_id_old,names_to = "metabolite",values_to="conc") %>%
+  mutate(mouse_id_old=paste0("D84_",mouse_id_old)) %>%
+  arrange(mouse_id_old) %>%
+  pivot_wider(names_from = mouse_id_old,values_from=conc) %>% 
+  rename("#"=metabolite)
+
+#save file
+# write_tsv(metab_d84_halla,"analysis/multiomics/halla/d84_metabolome_halla_c.tsv",quote_escape = "none")
+
+```
+
+
+```{r, prepare microbiome data}
+
+### ASVs
+#load phyloseq object
+physeq<-qza_to_phyloseq(
+    features="analysis/multiomics/microbiome/table_noSD.qza",
+    tree="analysis/multiomics/microbiome/rooted-tree.qza",
+    taxonomy="analysis/multiomics/microbiome/taxonomy_silva.qza",
+    metadata = "analysis/multiomics/microbiome/mapping_file_copy_13102020.tsv"
+    )
+
+
+# keep only day 84 samples
+physeq_d84<-subset_samples(physeq,Time=="Day84")
+
+#transform to relative abundance
+physeq_d84_rel<-transform(physeq_d84,transform = "compositional")
+
+
+
+#melt objects
+physeq_d84_melt<-psmelt(physeq_d84)
+physeq_d84_rel_melt<-psmelt(physeq_d84_rel)
+
+
+# filter melted objects to keep only  OTUs/genus that appear at >2 mice and at least at 5%
+
+filtered_OTUs<-physeq_d84_rel_melt %>% subset(Abundance>0) %>% group_by(OTU) %>%
+  dplyr::summarize(count=n(),max_freq=max(Abundance)) %>%
+  subset(max_freq>=0.05 & count>=2)
+
+filtered_OTUs<-filtered_OTUs$OTU
+
+# subset OTUs
+physeq_d84_rel_melt_filt<-physeq_d84_rel_melt %>% subset(OTU %in% filtered_OTUs)
+physeq_d84_melt_filt<-physeq_d84_melt %>% subset(OTU %in% filtered_OTUs)
+
+#create code with taxonomy (Phylum_Family_Genus_OTUcode)
+physeq_d84_rel_melt_filt$code<-paste(str_sub(physeq_d84_rel_melt_filt$Phylum,start = 1,end = 3),physeq_d84_rel_melt_filt$Family,
+                                 word(physeq_d84_rel_melt_filt$Genus,1),paste0(
+                                   str_sub(physeq_d84_rel_melt_filt$OTU,start = 1,end = 2),
+                                   str_sub(physeq_d84_rel_melt_filt$OTU,start = -2,end = -1)),
+                                 sep="_")
+
+
+physeq_d84_melt_filt$code<-paste(str_sub(physeq_d84_melt_filt$Phylum,start = 1,end = 3),physeq_d84_melt_filt$Family,
+                                 word(physeq_d84_melt_filt$Genus,1),paste0(
+                                   str_sub(physeq_d84_melt_filt$OTU,start = 1,end = 2),
+                                   str_sub(physeq_d84_melt_filt$OTU,start = -2,end = -1)),
+                                 sep="_")
+
+
+#create input for halla
+physeq_d84_melt_filt_halla<- physeq_d84_melt_filt %>% 
+  dplyr::select(code, Sample,Abundance) %>%
+  arrange(Sample) %>%
+  pivot_wider(names_from = Sample,values_from=Abundance) %>% 
+  rename("#"=code)
+
+
+#save files
+# write_tsv(physeq_d84_melt_filt_halla,"analysis/multiomics/halla/d84_microbiome_halla_c.tsv",quote_escape = "none")
+
+
+```
+
+
+
+This means that I am including the following numbers of features: `r dim(d84_para_gene_halla)[1]` mutated genes; `r dim(metab_d84_halla)[1]` metabolites; `r dim(physeq_d84_melt_filt_halla)[1]` ASVs
+
+
+## PCA on Aitchinson distances for each dataset: mutations, microbiome and ASVs
+
+Scree plots show the percent variance explained by each principal component. 
+
+```{r,fig.width=10}
+
+
+########
+# get metadata
+metadata<-data.frame(sample=colnames(d84_para_gene_halla[-1]))
+metadata$code<-metadata$sample %>% str_sub(.,start = 5,end=5)
+trt<-data.frame(code=c("C","F","M"),diet=c("WD","AD","SD"))
+metadata<-left_join(metadata,trt)
+
+metadata<-metadata %>%
+  mutate(diet = fct_relevel(diet, "SD","WD","AD"))
+
+rownames(metadata)<-metadata$sample
+metadata<-metadata[-1]
+
+########
+#mutations, parallel genes
+
+#check data
+head(d84_para_gene_halla,n=3)
+d84_para_gene_physeq<-as.data.frame(d84_para_gene_halla)
+
+#features to row names
+rownames(d84_para_gene_physeq)<-d84_para_gene_physeq$`#`
+d84_para_gene_physeq<-d84_para_gene_physeq[-1]
+
+#create phyloseq object
+d84_para_gene_physeq_obj<-phyloseq(sample_data(metadata), otu_table(d84_para_gene_physeq,taxa_are_rows = T))
+
+#apply CLR transformation
+d84_para_gene_physeq_obj<-transform_popSeq(d84_para_gene_physeq_obj,transform = "clr")
+
+#saveRDS(d84_para_gene_physeq_obj,"analysis/multiomics/d84_parallelMutations_freqPerGene_clr_phyloseq.rds")
+
+
+#ordinate
+d84_para_gene_physeq_obj_ord <- phyloseq::ordinate(d84_para_gene_physeq_obj, distance = "euclidean",method = "RDA")
+
+#pca
+pca_mut<-phyloseq::plot_ordination(d84_para_gene_physeq_obj, d84_para_gene_physeq_obj_ord) + 
+  geom_point(aes(fill=diet),shape=21,size=3)+ # This makes the representation of the data in points
+  theme_cowplot()+ # This is the theme that we used in ggplot2
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"),name="Diet")+ # Color of the points
+  scale_color_manual(values=c("#4575b4","#d73027","#878787"))+ # Color of the ellipse
+  background_grid(major="xy")+
+  ggtitle("mutations")+
+  theme(legend.position = "top",legend.justification = "center")
+
+plot_scree(d84_para_gene_physeq_obj_ord)+ggtitle("mutations")
+
+
+#########
+#metabolites
+
+#check data
+head(metab_d84_halla,n=3)
+metab_d84_physeq<-as.data.frame(metab_d84_halla)
+
+#features to row names
+rownames(metab_d84_physeq)<-metab_d84_physeq$`#`
+metab_d84_physeq<-metab_d84_physeq[-1]
+
+#create phyloseq object
+metab_d84_physeq_obj<-phyloseq(sample_data(metadata), otu_table(metab_d84_physeq,taxa_are_rows = T))
+
+#apply CLR transformation
+metab_d84_physeq_obj<-transform(metab_d84_physeq_obj,transform = "clr")
+#saveRDS(metab_d84_physeq_obj,"analysis/multiomics/d84_metabolome_clr_phyloseq.rds")
+
+#ordinate
+metab_d84_physeq_obj_ord <- phyloseq::ordinate(metab_d84_physeq_obj, distance = "euclidean",method = "RDA")
+
+#pca
+pca_metab<-phyloseq::plot_ordination(metab_d84_physeq_obj, metab_d84_physeq_obj_ord) + 
+  geom_point(aes(fill=diet),shape=21,size=3)+ # This makes the representation of the data in points
+  theme_cowplot()+ # This is the theme that we used in ggplot2
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"),name="Diet")+ # Color of the points
+  scale_color_manual(values=c("#4575b4","#d73027","#878787"))+ # Color of the ellipse
+  background_grid(major="xy")+
+  ggtitle("metabolites")+
+  theme(legend.position = "top",legend.justification = "center")
+
+plot_scree(metab_d84_physeq_obj_ord)+ggtitle("metabolites")
+
+
+#######
+#ASVs filtered
+#check data
+head(physeq_d84_melt_filt_halla,n=3)
+asvs_d84_physeq<-as.data.frame(physeq_d84_melt_filt_halla)
+
+#features to row names
+rownames(asvs_d84_physeq)<-asvs_d84_physeq$`#`
+asvs_d84_physeq<-asvs_d84_physeq[-1]
+
+#create phyloseq object
+asvs_d84_physeq_obj<-phyloseq(sample_data(metadata), otu_table(asvs_d84_physeq,taxa_are_rows = T))
+
+#apply CLR transformation
+asvs_d84_physeq_obj<-microbiome::transform(asvs_d84_physeq_obj,transform = "clr")
+#saveRDS(asvs_d84_physeq_obj,"analysis/multiomics/d84_microbiome_clr_phyloseq.rds")
+
+#ordinate
+asvs_d84_physeq_obj_ord <- phyloseq::ordinate(asvs_d84_physeq_obj, distance = "euclidean",method = "RDA")
+
+#pca
+pca_asv<-phyloseq::plot_ordination(asvs_d84_physeq_obj, asvs_d84_physeq_obj_ord) + 
+  geom_point(aes(fill=diet),shape=21,size=3)+ # This makes the representation of the data in points
+  theme_cowplot()+ # This is the theme that we used in ggplot2
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"),name="Diet")+ # Color of the points
+  scale_color_manual(values=c("#4575b4","#d73027","#878787"))+ # Color of the ellipse
+  background_grid(major="xy")+
+  ggtitle("16S variants")+
+  theme(legend.position = "top",legend.justification = "center")
+
+plot_scree(asvs_d84_physeq_obj_ord)+ggtitle("ASVs")
+
+
+##############################
+pca_plots <- plot_grid(
+  pca_mut + theme(legend.position="none"),
+  pca_metab + theme(legend.position="none"),
+  pca_asv + theme(legend.position="none"),
+  align = 'vh',
+  hjust = -1,
+  nrow = 1)
+
+pca_plots_leg<-plot_grid(get_legend(pca_mut),pca_plots, rel_heights = c(.3, 3),ncol = 1)
+
+pca_plots_leg
+
+
+```
+
+Fig. S5A-C
+ 
+```{r,fig.width=10}
+
+#mutations
+pca_mut_x<-ggplot(pca_mut$data, aes(x=PC1,y=diet,fill=diet))+
+  geom_boxplot(outlier.alpha = 1, alpha=0.6)+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="x")+
+  theme(legend.position = "none",axis.text = element_blank(),
+        axis.ticks = element_blank(),axis.title = element_blank(),
+        axis.line = element_blank())
+
+pca_mut_y<-ggplot(pca_mut$data, aes(y=PC2,x=diet,fill=diet))+
+  geom_boxplot(outlier.alpha = 1, alpha=0.6)+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  theme(legend.position = "none",axis.text = element_blank(),
+        axis.ticks = element_blank(),axis.title = element_blank(),
+        axis.line = element_blank())
+
+pca_mut_bp<-wrap_plots(pca_mut_x, plot_spacer(), 
+           pca_mut+theme(legend.position = "none",plot.title = element_blank()), 
+           pca_mut_y, nrow = 2, heights = c(1,3),widths=c(5,1))+
+  plot_annotation(title = "mutations", theme = theme(plot.title = element_text(face="bold")))
+
+
+## metabolites
+pca_metab_x<-ggplot(pca_metab$data, aes(x=PC1,y=diet,fill=diet))+
+  geom_boxplot(outlier.alpha = 1, alpha=0.6)+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="x")+
+  theme(legend.position = "none",axis.text = element_blank(),
+        axis.ticks = element_blank(),axis.title = element_blank(),
+        axis.line = element_blank())
+
+pca_metab_y<-ggplot(pca_metab$data, aes(y=PC2,x=diet,fill=diet))+
+  geom_boxplot(outlier.alpha = 1, alpha=0.6)+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  theme(legend.position = "none",axis.text = element_blank(),
+        axis.ticks = element_blank(),axis.title = element_blank(),
+        axis.line = element_blank())
+
+pca_metab_bp<-wrap_plots(pca_metab_x, plot_spacer(), 
+           pca_metab+theme(legend.position = "none",plot.title = element_blank()), 
+           pca_metab_y, nrow = 2, heights = c(1,3),widths=c(5,1))+
+  plot_annotation(title = "metabolites", theme = theme(plot.title = element_text(face="bold")))
+
+## metabolites
+pca_asv_x<-ggplot(pca_asv$data, aes(x=PC1,y=diet,fill=diet))+
+  geom_boxplot(outlier.alpha = 1, alpha=0.6)+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="x")+
+  theme(legend.position = "none",axis.text = element_blank(),
+        axis.ticks = element_blank(),axis.title = element_blank(),
+        axis.line = element_blank())
+
+pca_asv_y<-ggplot(pca_asv$data, aes(y=PC2,x=diet,fill=diet))+
+  geom_boxplot(outlier.alpha = 1, alpha=0.6)+
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  theme(legend.position = "none",axis.text = element_blank(),
+        axis.ticks = element_blank(),axis.title = element_blank(),
+        axis.line = element_blank())
+
+pca_asv_bp<-wrap_plots(pca_asv_x, plot_spacer(), 
+           pca_asv+theme(legend.position = "none",plot.title = element_blank()), 
+           pca_asv_y, nrow = 2, heights = c(1,3),widths=c(5,1))+
+  plot_annotation(title = "16S variants", theme = theme(plot.title = element_text(face="bold")))
+
+
+# combine plots
+pca_plots_bp <- plot_grid(
+  pca_mut_bp,
+  pca_metab_bp,
+  pca_asv_bp,
+  align = 'vh',
+  hjust = -1,
+  nrow = 1)
+
+
+pca_plots_bp_leg<-plot_grid(get_legend(pca_mut),pca_plots_bp, rel_heights = c(.3, 3),ncol = 1)
+
+pca_plots_bp_leg
+
+
+```
+
+### Statistical analysis based on the Aitchinson distance or the PCA
+
+For each dataset, I carry the following analysis:  
+
+- Permanova and betadisper on the Aitchinson distances;  
+- Anova on each principal component  
+
+Note: **PERMANOVA** is used to test for differences in beta diversity (in this case Aitchinson) between groups (using the *adonis* function from the *vegan* package). The null hypothesis tested by PERMANOVA is that, under the assumption of exchangeability of the sample units among the groups, H0: “the centroids of the groups, as defined in the space of the chosen resemblance measure, are equivalent for all groups.” Thus, if H0 were true, any observed differences among the centroids in a given set of data will be similar in size to what would be obtained under random allocation of individual sample units to the groups (i.e., under permutation). One of the assumptions of PERMANOVA is that the variances of the different treatment groups are homogeneous. To test for this we use  **BETADISPER** (using the *betadisper* function also from the *vegan* package). When PERMANOVA is significant and BETADISPER is not, we can confidently say that there are differences between the groups. Conversely, when both PERMANOVA and BETADISPER are significant, we cannot disentangle whether the significance of the PERMANOVA is due to differences in mean or variance between the groups.
+
+**mutation data**  
+
+Summary: Both permanova and betadisper are significant. On anova for each PC, there are significant differences in PC1 (WD is significantly different from all other diets) and PC2 (SD is significantly different from all other diets)
+```{r}
+
+
+#vegdist calculates the pairwise distances between all the individuals
+set.seed(1)
+d84_para_gene_physeq_euclid<-vegdist(otu_table(d84_para_gene_physeq_obj) %>% t() %>% as.matrix(), 
+                                method = 'euclidean',binary = FALSE)
+```
+
+PERMANOVA
+```{r}
+# PERMANOVA: We can use adonis from the vegan package to use PERMANOVA
+set.seed(1)
+adonis(d84_para_gene_physeq_euclid~diet,data = metadata, method = 'euclidean')
+
+
+```
+
+BETADISPER
+```{r}
+# To see if the assumption is met we just compare the dispersion in each group
+dispersion<-betadisper(d84_para_gene_physeq_euclid, group =metadata$diet)
+set.seed(1)
+permutest(dispersion) # From the p-value we can see that we are not breaking the assumption
+```
+
+ANOVA: PC1
+
+anova
+```{r}
+m1<-lm(data=pca_mut$data,PC1~diet)
+
+anova(m1)
+
+
+```
+
+pairwise comparison
+```{r}
+emmeans::emmeans(m1,pairwise~diet)
+```
+
+diagnostics plot: results look ok, no sign of violation of assumptions
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+
+ANOVA: PC2
+
+anova
+```{r}
+m1<-lm(data=pca_mut$data,PC2~diet)
+
+anova(m1)
+
+```
+
+pairwise comparison
+```{r}
+emmeans::emmeans(m1,pairwise~diet)
+```
+
+diagnostics plot: results look ok, no sign of violation of assumptions
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+
+**metabolites data**  
+
+Summary: Permanova is significant and betadisper is not, which indicates an effect of treatment on the mean aitchinson distances. On anova for each PC, there are significant differences in PC1 (WD is significantly different from all other diets) and no significant effect on PC2.
+
+```{r}
+
+#vegdist calculates the pairwise distances between all the individuals
+set.seed(1)
+metab_d84_physeq_euclid<-vegdist(otu_table(metab_d84_physeq_obj) %>% t() %>% as.matrix(), 
+                                method = 'euclidean',binary = FALSE)
+```
+
+PERMANOVA
+```{r}
+# PERMANOVA: We can use adonis from the vegan package to use PERMANOVA
+set.seed(1)
+adonis(metab_d84_physeq_euclid~diet,data = metadata, method = 'euclidean')
+
+
+```
+
+BETADISPER
+```{r}
+# To see if the assumption is met we just compare the dispersion in each group
+dispersion<-betadisper(metab_d84_physeq_euclid, group =metadata$diet)
+set.seed(1)
+permutest(dispersion) # From the p-value we can see that we are not breaking the assumption
+```
+
+ANOVA: PC1
+
+anova
+```{r}
+m1<-lm(data=pca_metab$data,PC1~diet)
+
+anova(m1)
+
+
+```
+
+pairwise comparison
+```{r}
+emmeans::emmeans(m1,pairwise~diet)
+```
+
+diagnostics plot: results look ok, no sign of violation of assumptions
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+ANOVA: PC2
+
+anova
+```{r}
+m1<-lm(data=pca_metab$data,PC2~diet)
+
+anova(m1)
+
+
+```
+
+pairwise comparison
+```{r}
+emmeans::emmeans(m1,pairwise~diet)
+```
+
+diagnostics plot: results do not look great both on the variance and on the QQ normality plot
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+
+**ASVs**  
+
+Summary: Both permanova and betadisper are significant. On anova for each PC, there are no significant differences in PC1 (although SD vs AD is borderline) and there is a significant effect on PC2 (AD is significantly different from all other diets).
+
+```{r}
+
+#vegdist calculates the pairwise distances between all the individuals
+set.seed(1)
+asvs_d84_physeq_euclid<-vegdist(otu_table(asvs_d84_physeq_obj) %>% t() %>% as.matrix(), 
+                                method = 'euclidean',binary = FALSE)
+```
+
+PERMANOVA
+```{r}
+# PERMANOVA: We can use adonis from the vegan package to use PERMANOVA
+set.seed(1)
+adonis(asvs_d84_physeq_euclid~diet,data = metadata, method = 'euclidean')
+
+
+```
+
+BETADISPER
+```{r}
+# To see if the assumption is met we just compare the dispersion in each group
+dispersion<-betadisper(asvs_d84_physeq_euclid, group =metadata$diet)
+set.seed(1)
+permutest(dispersion) # From the p-value we can see that we are not breaking the assumption
+```
+
+ANOVA: PC1
+
+anova
+```{r}
+m1<-lm(data=pca_asv$data,PC1~diet)
+
+anova(m1)
+
+
+```
+
+pairwise comparison
+```{r}
+emmeans::emmeans(m1,pairwise~diet)
+```
+
+diagnostics plot: results look ok, no sign of violation of assumptions
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+
+ANOVA: PC2
+
+anova
+```{r}
+m1<-lm(data=pca_asv$data,PC2~diet)
+
+anova(m1)
+
+
+```
+
+pairwise comparison
+```{r}
+emmeans::emmeans(m1,pairwise~diet)
+```
+
+diagnostics plot: results do not look great both on the variance and on the QQ normality plot
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+## Integrative analysis with DIABLO
+
+
+```{r Format data for DIABLO}
+# data input: matrices with samples as rows and features as columns
+d84_para_gene_physeq_obj<-readRDS("analysis/multiomics/d84_parallelMutations_freqPerGene_clr_phyloseq.rds")
+metab_d84_physeq_obj<-readRDS("analysis/multiomics/d84_metabolome_clr_phyloseq.rds")
+asvs_d84_physeq_obj<-readRDS("analysis/multiomics/d84_microbiome_clr_phyloseq.rds")
+
+
+#format data
+d84_para_gene_physeq_diablo<-as.data.frame(otu_table(d84_para_gene_physeq_obj)) %>% t() %>% as.matrix()
+asvs_d84_physeq_diablo<-as.data.frame(otu_table(asvs_d84_physeq_obj)) %>% t() %>% as.matrix()
+metab_d84_physeq_diablo<-as.data.frame(otu_table(metab_d84_physeq_obj)) %>% t() %>% as.matrix()
+
+# extract training data and name each data frame
+X <- list(mutations = d84_para_gene_physeq_diablo, 
+          asvs = asvs_d84_physeq_diablo, 
+          metabolites = metab_d84_physeq_diablo)
+Y <- metadata$diet
+
+# saveRDS(X,"analysis/multiomics/diablo/diablo_data.rds")
+# saveRDS(Y,"analysis/multiomics/diablo/diablo_metadata.rds")
+```
+
+
+```{r}
+X<-readRDS("analysis/multiomics/diablo/diablo_data.rds")
+Y<-readRDS("analysis/multiomics/diablo/diablo_metadata.rds")
+```
+
+
+```{r,eval=FALSE}
+# sannity check
+
+dim(X$mutations)
+dim(X$asvs)
+dim(X$metabolites)
+summary(Y)
+```
+
+### Parameter tunning
+
+**design matrix**  - this determines which datasets should be connected to maximize the correlation or covariance between components. A way they suggest for defining this is to use partial least squares (PLS) to test whether datasets are more or less correlated. See here: https://mixomics-users.discourse.group/t/choosing-diablo-design-matrix/204/6. 
+
+The values below show the correlation between datasets across components for:  
+
+mutations vs metabolites
+
+```{r}
+A=d84_para_gene_physeq_diablo
+B=metab_d84_physeq_diablo
+pls.res = pls(A, B, ncomp = 5)
+cor(pls.res$variates$X, pls.res$variates$Y) %>% diag()
+```
+
+mutations vs asvs
+```{r}
+A=d84_para_gene_physeq_diablo
+B=asvs_d84_physeq_diablo
+pls.res = pls(A, B, ncomp = 5)
+cor(pls.res$variates$X, pls.res$variates$Y) %>% diag()
+```
+
+metabolites vs asvs
+```{r}
+A=metab_d84_physeq_diablo
+B=asvs_d84_physeq_diablo
+pls.res = pls(A, B, ncomp = 5)
+cor(pls.res$variates$X, pls.res$variates$Y) %>% diag()
+
+```
+
+This revelaed that the correlations between mutations and metabolites and between mutations and ASVs is ~0.85 and this is ~0.7 between asvs and metabolites. However, when I tested, there was little difference in the results of including a design matrix with these values or with all off-diagonals =1, so I used the latter which was a more common approach in Diablo. The final design matrix is:
+
+```{r}
+design = matrix(1, ncol = length(X), nrow = length(X), 
+                dimnames = list(names(X), names(X)))
+diag(design) = 0
+design 
+
+```
+
+
+**Number of components** - To run diablo, we need to identify what is the most appropriate number of latent components (i.e. main axis of variation). While the table below indicates that 5 components are the best choice, I proceeded with three, as there was not much difference between 3 and 5 and the former is more straightforward to interpret.
+
+```{r}
+para.test.diablo <- block.splsda(X, Y, ncomp = 5,max.iter = 1000,design = design)
+
+```
+
+```{r, eval=F}
+
+
+set.seed(123) # for reproducibility, only when the `cpus' argument is not used
+# this code takes a couple of min to run
+perf.test.diablo = perf(para.test.diablo, validation = 'Mfold', folds = 5, nrepeat = 50,progressBar = T,design=design)
+
+# saveRDS(perf.test.diablo,"analysis/multiomics/diablo/perf.test.diablo_ncomp.rds")
+
+
+```
+
+```{r}
+perf.test.diablo<-readRDS("analysis/multiomics/diablo/perf.test.diablo_ncomp.rds")
+plot(perf.test.diablo) 
+perf.test.diablo$choice.ncomp$WeightedVote
+
+```
+
+
+**number of features**: To run Diablo, we need to check what is the number of features per dataset/per component that is most appropriate for this dataset. Below we run multiple parameter combinations to test this. The falues below indicate that we use 6 genes for component 1 on the mutations data, 25 for the component 2 and 45 for the component 3.
+
+```{r}
+# test.keepx is a list of the number of components to test for each dataset. The max depends on the number of features in each dataset
+test.keepX = list (mutations = c(5:9, seq(10, 20, 2), seq(25,70,5)),
+                   asvs = c(5:9, seq(10, 24, 2)),
+                   metabolites = c(5:9, seq(10, 20, 2), seq(25,45,5)))
+```
+
+
+```{r run and store tune to test feature numbers,eval=F}
+# I tested differenct combinations of parameters, but will proceed with the ncomp=3, and Mfold validation (as the latter allows me to have error rates)
+# number of of samples / number of folds should > 6 to 8
+
+#run on bioinfoVM
+tune.keepX.diablo = tune.block.splsda(X = X, Y = Y, ncomp = 3, 
+                              test.keepX = test.keepX,
+                              validation = 'Mfold', folds = 5, nrepeat = 3,
+                              cpus = 4, dist = "centroids.dist",
+                              design = design)
+
+# saveRDS(tune.keepX.diablo,"analysis/multiomics/diablo/keepX_tune_nfeatures_3comp.rds")
+
+
+```
+
+
+```{r load tuned keepX with best number of components}
+
+# 3 comp Mfold
+
+tune.keepX.diablo.3<-readRDS("analysis/multiomics/diablo/keepX_tune_nfeatures_3comp.rds")
+
+list.keepX.3 = tune.keepX.diablo.3$choice.keepX
+
+list.keepX.3
+```
+
+
+
+
+**final model**
+
+```{r}
+final.diablo<-block.splsda(X = X, Y = Y, ncomp = 3, 
+                          keepX = list.keepX.3, design = design)
+
+```
+
+
+```{r,eval=F}
+set.seed(123)
+
+perf.final.diablo = perf(final.diablo, dist = 'centroids.dist',
+                         validation = 'Mfold',folds = 5, nrepeat = 50,
+                         progressBar = T, auc=T)
+
+# saveRDS(perf.final.diablo,"analysis/multiomics/diablo/performance_final.diablo_3comp.rds")
+
+```
+
+```{r}
+perf.final.diablo<-readRDS("analysis/multiomics/diablo/performance_final.diablo_3comp.rds")
+
+```
+
+###Diablo latent variables
+Diablo identifies a set of latent variables that explain more variance across the datasets. We can think of this as sort of ordination, on the most discriminatory variables. We see that if we look at the first row (comp2 vs comp1), we get similar results to the PCA.  The figure below is saved as `diablo_component_plots.pdf`.
+
+
+```{r,fig.show='hide'}
+
+# diablo component plots var 1 vs var 2
+pls_diablo_c12<-plotIndiv(final.diablo, 
+                          comp = c(1,2),
+                          ind.names = FALSE, 
+                          legend=TRUE, pch=c(21,21,21),
+                          col = c("#4575b4","#d73027","#878787"))$df
+
+pls_diablo_c12$sample<-rownames(pls_diablo_c12)
+
+rownames(pls_diablo_c12)<-NULL
+
+pls_diablo_c12<-pls_diablo_c12 %>% dplyr::select(1:4,10) %>% dplyr::rename(comp1=x,comp2=y,diet=group)
+pls_diablo_c12$Block<-str_remove(pls_diablo_c12$Block,"Block: ")
+
+pls_diablo_c12<-pls_diablo_c12 %>%
+  mutate(Block = fct_relevel(Block, "mutations","metabolites","asvs"))
+
+pls_diablo_c12<-pls_diablo_c12 %>%
+  mutate(diet = fct_relevel(diet, "SD","WD","AD"))
+
+# diablo component plots var 1 vs var 3
+
+pls_diablo_c13<-plotIndiv(final.diablo, 
+                          comp = c(1,3),
+                          ind.names = FALSE, 
+                          legend=TRUE, pch=c(21,21,21),
+                          col = c("#4575b4","#d73027","#878787"))$df
+
+pls_diablo_c13$sample<-rownames(pls_diablo_c13)
+
+rownames(pls_diablo_c13)<-NULL
+
+pls_diablo_c13<-pls_diablo_c13 %>% dplyr::select(1:4,10) %>% dplyr::rename(comp1=x,comp3=y,diet=group)
+pls_diablo_c13$Block<-str_remove(pls_diablo_c13$Block,"Block: ")
+
+
+pls_diablo_c13<-pls_diablo_c13 %>%
+  mutate(Block = fct_relevel(Block, "mutations","metabolites","asvs"))
+
+pls_diablo_c13<-pls_diablo_c13 %>%
+  mutate(diet = fct_relevel(diet, "SD","WD","AD"))
+
+# diablo component plots var 1 vs var 3
+
+pls_diablo_c23<-plotIndiv(final.diablo, 
+                          comp = c(2,3),
+                          ind.names = FALSE, 
+                          legend=TRUE, pch=c(21,21,21),
+                          col = c("#4575b4","#d73027","#878787"))$df
+
+pls_diablo_c23$sample<-rownames(pls_diablo_c23)
+
+rownames(pls_diablo_c23)<-NULL
+
+pls_diablo_c23<-pls_diablo_c23 %>% dplyr::select(1:4,10) %>% dplyr::rename(comp2=x,comp3=y,diet=group)
+pls_diablo_c23$Block<-str_remove(pls_diablo_c23$Block,"Block: ")
+
+
+pls_diablo_c23<-pls_diablo_c23 %>%
+  mutate(Block = fct_relevel(Block, "mutations","metabolites","asvs"))
+
+pls_diablo_c23<-pls_diablo_c23 %>%
+  mutate(diet = fct_relevel(diet, "SD","WD","AD"))
+
+
+```
+
+The figures below corresponds to Fig. 5A and S5E
+```{r,fig.width=10}
+
+plot_c12<-ggplot(pls_diablo_c12,aes(x=comp1,y=comp2)) + 
+  geom_point(aes(fill=diet),shape=21,size=3)+ # This makes the representation of the data in points
+  theme_cowplot()+ # This is the theme that we used in ggplot2
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"),name="Diet")+ # Color of the points
+  background_grid(major="xy")+
+  xlab("Variate 1")+ylab("Variate 2")+
+  facet_wrap(~Block)+
+  theme(legend.position = "top",legend.justification = "center")
+
+plot_c13<-ggplot(pls_diablo_c13,aes(x=comp1,y=comp3)) + 
+  geom_point(aes(fill=diet),shape=21,size=3)+ # This makes the representation of the data in points
+  theme_cowplot()+ # This is the theme that we used in ggplot2
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"),name="Diet")+ # Color of the points
+  background_grid(major="xy")+
+  xlab("Variate 1")+ylab("Variate 3")+
+  facet_wrap(~Block)+
+  theme(legend.position = "top",legend.justification = "center")
+
+plot_c23<-ggplot(pls_diablo_c23,aes(x=comp2,y=comp3)) + 
+  geom_point(aes(fill=diet),shape=21,size=3)+ # This makes the representation of the data in points
+  theme_cowplot()+ # This is the theme that we used in ggplot2
+  scale_fill_manual(values=c("#4575b4","#d73027","#878787"),name="Diet")+ # Color of the points
+  background_grid(major="xy")+
+  xlab("Variate 2")+ylab("Variate 3")+
+  facet_wrap(~Block)+
+  theme(legend.position = "top",legend.justification = "center")
+
+comp_plots <- plot_grid(
+  plot_c12 + theme(legend.position="none"),
+  plot_c13 + theme(legend.position="none"),
+  plot_c23 + theme(legend.position="none"),
+  align = 'vh',
+  hjust = -1,
+  nrow = 3)
+
+comp_plots_leg<-plot_grid(get_legend(plot_c12),comp_plots, rel_heights = c(.3, 3),ncol = 1)
+
+comp_plots_leg
+
+
+```
+
+
+## Diablo model performance
+One of the things diablo allows us to access is its model performance in terms of classification. So, when Diablo tries to predict to which diet a sample belongs, how often does it get it right. As expected, the model is very good at predicting when samples belong to WD vs the others, particularly from metabolites and mutations. It is sort of ok at separating AD from the others, particularly on ASVs and struggles to separate SD from the others. Interestingly, if we look at the variate three plots (as this includes the error rate on the previous two variates), we see that mutations are the best at separating SD, as good as metabolites at separating WD and the second best at separating AD.  
+
+The plot below corresponds to Fig. 5D.
+
+```{r}
+
+# mean error
+
+muts_error<-perf.final.diablo$error.rate.per.class$mutations$centroids.dist %>% as.data.frame()
+muts_error$diet<-rownames(muts_error)
+rownames(muts_error)<-NULL
+muts_error$Block<-"mutations"
+
+asvs_error<-perf.final.diablo$error.rate.per.class$asvs$centroids.dist %>% as.data.frame()
+asvs_error$diet<-rownames(asvs_error)
+rownames(asvs_error)<-NULL
+asvs_error$Block<-"asvs"
+
+metab_error<-perf.final.diablo$error.rate.per.class$metabolites$centroids.dist %>% as.data.frame()
+metab_error$diet<-rownames(metab_error)
+rownames(metab_error)<-NULL
+metab_error$Block<-"metabolites"
+
+# sd error
+
+muts_error.sd<-perf.final.diablo$error.rate.per.class.sd$mutations$centroids.dist %>% as.data.frame()
+muts_error.sd$diet<-rownames(muts_error.sd)
+rownames(muts_error.sd)<-NULL
+muts_error.sd$Block<-"mutations"
+
+asvs_error.sd<-perf.final.diablo$error.rate.per.class.sd$asvs$centroids.dist %>% as.data.frame()
+asvs_error.sd$diet<-rownames(asvs_error.sd)
+rownames(asvs_error.sd)<-NULL
+asvs_error.sd$Block<-"asvs"
+
+metab_error.sd<-perf.final.diablo$error.rate.per.class.sd$metabolites$centroids.dist %>% as.data.frame()
+metab_error.sd$diet<-rownames(metab_error.sd)
+rownames(metab_error.sd)<-NULL
+metab_error.sd$Block<-"metabolites"
+
+
+# combine dataframes, mean
+error_df<-bind_rows(muts_error, asvs_error,metab_error) %>% pivot_longer(cols=comp1:comp3,names_to="comp")
+
+# combine dataframes, sd
+error_df.sd<-bind_rows(muts_error.sd, asvs_error.sd,metab_error.sd) %>% pivot_longer(cols=comp1:comp3,names_to="comp")
+error_df.sd<-error_df.sd %>% dplyr::rename(sd=value)
+
+# combine dataframes
+error_df<-left_join(error_df,error_df.sd)
+error_df$var<-factor(error_df$comp, labels = c("Variate 1", "Variate 2", "Variate 3"))
+error_df<-error_df %>% mutate(diet = fct_relevel(diet, "SD","WD","AD"))
+error_df<-error_df%>% mutate(Block = fct_relevel(Block,"mutations","metabolites","asvs"))
+
+
+pref_plot_comp3<-ggplot(error_df[error_df$comp=="comp3",],aes(x=diet,y=value,fill=Block))+
+  geom_col(position = position_dodge(width=0.9))+
+  geom_errorbar(aes(ymin=value-sd,ymax=value+sd),width=0,position = position_dodge(width=0.9))+
+  scale_fill_manual(values = c("#7fbf7b", "#ffffbf","#e9a3c9"),name="",
+                    labels=c("mutations","metabolites","16S variants"))+
+  theme_cowplot()+
+  background_grid(major="y")+ylab("Cross-validation error rate (+/-sd)")+xlab("Diet")+
+  theme(legend.position = "top")
+
+pref_plot_comp3
+
+```
+
+Full Fig. 5.
+
+```{r,fig.width=12}
+
+plot_grid(plot_c12,pref_plot_comp3,nrow=1,rel_widths = c(1,0.4))
+
+```
+
+
+
+## Correlation network
+
+### Network analysis with Halla (Hierarchical All-against-All discovery)  
+
+This is a more sophisticated method of testing for correlations between features of omics datasets. See here: https://huttenhower.sph.harvard.edu/halla
+
+
+
+```{r}
+# get features to keep (have to be detected in more than 5 mice)
+d84_para_gene_halla<-read_tsv("analysis/multiomics/halla/d84_paralleMutations_freqPerGene_halla.tsv")
+physeq_d84_melt_filt_halla<-read_tsv("analysis/multiomics/halla/d84_microbiome_halla.tsv")
+metab_d84_halla<-read_tsv("analysis/multiomics/halla/d84_metabolome_halla.tsv")
+
+mutations_filt<-d84_para_gene_halla %>% 
+  pivot_longer(D84_C1:D84_M9,names_to="mouse",values_to="frequency") %>%
+  mutate(zero=ifelse(frequency==0,"yes","no")) %>%
+  group_by(`#`,zero) %>%
+  dplyr::summarise(count=n()) %>%
+  filter(zero=="no") %>%
+  filter(count>=5) %>%
+  pull(`#`) %>%
+  unique()
+
+# write_tsv(d84_para_gene_halla[d84_para_gene_halla$`#` %in% mutations_filt,],"analysis/multiomics/halla/d84_paralleMutations_freqPerGene_halla_5samples.tsv",quote_escape = "none")
+
+
+asvs_filt<-physeq_d84_melt_filt_halla %>% 
+  pivot_longer(D84_C1:D84_M9,names_to="mouse",values_to="frequency") %>%
+  mutate(zero=ifelse(frequency==0,"yes","no")) %>%
+  group_by(`#`,zero) %>%
+  dplyr::summarise(count=n()) %>%
+  filter(zero=="no") %>%
+  filter(count>=5) %>%
+  pull(`#`) %>%
+  unique()
+
+# write_tsv(physeq_d84_melt_filt_halla[physeq_d84_melt_filt_halla$`#` %in% asvs_filt,],"analysis/multiomics/halla/d84_microbiome_halla_5samples.tsv",quote_escape = "none")
+
+
+metab_filt<-metab_d84_halla %>% 
+  pivot_longer(D84_C1:D84_M9,names_to="mouse",values_to="frequency") %>%
+  mutate(zero=ifelse(frequency==0,"yes","no")) %>%
+  group_by(`#`,zero) %>%
+  dplyr::summarise(count=n()) %>%
+  filter(zero=="no") %>%
+  filter(count>=5) %>%
+  pull(`#`) %>%
+  unique()
+
+# write_tsv(metab_d84_halla[metab_d84_halla$`#` %in% metab_filt,],"analysis/multiomics/halla/d84_metabolome_halla_5samples.tsv",quote_escape = "none")
+```
+
+
+```{bash, samples present in at least 5 mice}
+
+
+cd analysis/multiomics/halla
+
+# metabolome vs parallel genes (with spearman correlation); min 5 samples
+mkdir metabolome_vs_parallelGenes_5samples
+
+nohup halla -X d84_metabolome_halla_5samples.tsv -Y d84_paralleMutations_freqPerGene_halla_5samples.tsv -m spearman --output metabolome_vs_parallelGenes_5samples --diagnostics-plot -v metabolome_vs_parallelGenes_5samples/std.out  --header -i 1000 --nproc 6 > metabolome_vs_parallelGenes_5samples/nohup.out &
+
+
+# microbiome (ASVs, raw counts) vs parallel genes (with spearman correlation); min 5 samples
+mkdir microbiomeASVsraw_vs_parallelGenes_5samples
+
+nohup halla -X d84_microbiome_halla_5samples.tsv -Y d84_paralleMutations_freqPerGene_halla_5samples.tsv -m spearman --output microbiomeASVsraw_vs_parallelGenes_5samples --diagnostics-plot -v microbiomeASVsraw_vs_parallelGenes_5samples/std.out  --header -i 1000 --nproc 6 > microbiomeASVsraw_vs_parallelGenes_5samples/nohup.out &
+
+
+# microbiome (asvs, raw counts) vs metabolome (with spearman correlation); min 5 samples
+mkdir microbiomeASVsraw_vs_metabolome_5samples
+
+nohup halla -X d84_microbiome_halla_5samples.tsv -Y d84_metabolome_halla_5samples.tsv -m spearman --output microbiomeASVsraw_vs_metabolome_5samples --diagnostics-plot -v microbiomeASVsraw_vs_metabolome_5samples/std.out  --header -i 1000 --nproc 6 > microbiomeASVsraw_vs_metabolome_5samples/nohup.out &
+
+
+
+```
+
+This generates Fig. 4G
+```{r}
+
+#metabolome vs mutations
+metab_para_allAssoc<-read_tsv("analysis/multiomics/halla/metabolome_vs_parallelGenes_5samples/all_association_results_one_by_one.txt") %>%
+  rename(to=`First Dataset`,from=`Second Dataset`)
+  
+metab_para_simTab<-read_tsv("analysis/multiomics/halla/metabolome_vs_parallelGenes_5samples/similarity_table.txt") %>% rename(to=`#`) %>%
+  pivot_longer(-to,names_to = "from",values_to = "cor")
+
+metab_para_allAssoc_sim<-left_join(metab_para_allAssoc[c(1,2,4)],metab_para_simTab)
+metab_para_allAssoc_sim$comparison<-rep("mutations_metabolome",dim(metab_para_allAssoc_sim)[1])
+
+
+
+# microbiome vs mutations
+micro_para_allAssoc<-read_tsv("analysis/multiomics/halla/microbiomeASVsraw_vs_parallelGenes_5samples/all_association_results_one_by_one.txt") %>%
+  rename(to=`First Dataset`,from=`Second Dataset`)
+  
+micro_para_simTab<-read_tsv("analysis/multiomics/halla/microbiomeASVsraw_vs_parallelGenes_5samples/similarity_table.txt") %>% rename(to=`#`) %>%
+  pivot_longer(-to,names_to = "from",values_to = "cor")
+
+
+micro_para_allAssoc_sim<-left_join(micro_para_allAssoc[c(1,2,4)],micro_para_simTab)
+micro_para_allAssoc_sim$comparison<-rep("mutations_microbiome",dim(micro_para_allAssoc_sim)[1])
+
+# microbiome vs metabolome
+micro_metab_allAssoc<-read_tsv("analysis/multiomics/halla/microbiomeASVsraw_vs_metabolome_5samples/all_association_results_one_by_one.txt") %>%
+  rename(to=`First Dataset`,from=`Second Dataset`)
+  
+micro_metab_simTab<-read_tsv("analysis/multiomics/halla/microbiomeASVsraw_vs_metabolome_5samples/similarity_table.txt") %>% rename(to=`#`) %>%
+  pivot_longer(-to,names_to = "from",values_to = "cor")
+
+
+micro_metab_allAssoc_sim<-left_join(micro_metab_allAssoc[c(1,2,4)],micro_metab_simTab)
+micro_metab_allAssoc_sim$comparison<-rep("microbiome_metabolome",dim(micro_metab_allAssoc_sim)[1])
+
+
+# bind and plot results
+links<-bind_rows(metab_para_allAssoc_sim,micro_para_allAssoc_sim,micro_metab_allAssoc_sim)
+links$sign<-ifelse(links$cor > 0, "positive", "negative")
+
+
+#create metadata for network
+metadata_net<-data.frame(feature=c(metab_para_allAssoc_sim$to,metab_para_allAssoc_sim$from,
+                                   micro_para_allAssoc_sim$to,micro_para_allAssoc_sim$from,
+                                   micro_metab_allAssoc_sim$to,micro_metab_allAssoc_sim$from),
+                         type=c(rep("metabolites",dim(metab_para_allAssoc_sim)[1]),rep("mutations",dim(metab_para_allAssoc_sim)[1]),
+                                rep("asvs",dim(micro_para_allAssoc_sim)[1]),rep("mutations",dim(micro_para_allAssoc_sim)[1]),
+                                rep("asvs",dim(micro_metab_allAssoc_sim)[1]),rep("metabolites",dim(micro_metab_allAssoc_sim)[1])))
+  
+metadata_net <- metadata_net %>% distinct() %>% arrange(type,feature) 
+  
+
+# networks with fdr<0.1, cor>0.5
+# create a dataframe to indicate which nodes get to be labelled, so that the network is less messy
+
+links_fdr0.1_cor0.5<-links %>% subset(qvalue<0.1 & abs(cor)>0.5)
+
+nodes_count_df<-table(c(links_fdr0.1_cor0.5$to,links_fdr0.1_cor0.5$from)) %>% 
+  data.frame() %>% dplyr::rename(c(feature=Var1,count=Freq))
+nodes_count_df$label_node<-ifelse(nodes_count_df$count>=4,as.character(nodes_count_df$feature),"")
+metadata_net_fdr0.1_cor0.5<-left_join(metadata_net,nodes_count_df) %>% arrange(type,feature)
+
+
+graph_data<-graph_from_data_frame(links_fdr0.1_cor0.5,
+                              directed = FALSE,
+                              vertices = metadata_net_fdr0.1_cor0.5)
+
+
+graph_data<-graph_data %>% as_tbl_graph(graph) %>% activate(nodes) %>%
+  filter(!node_is_isolated()) %>% 
+  mutate(community = as.factor(group_edge_betweenness())) %>%
+  group_by(community) %>% mutate(community_size=n()) %>%
+  mutate(community_filt=ifelse(community_size<4,NA,community) %>% as.factor()) 
+
+graph_data_df<-data.frame(graph_data)
+
+
+
+### plot networks fdr 0.1
+
+set.seed(10)
+ggraph(graph_data, layout = "fr") +
+  geom_mark_hull(aes(x = x, y = y, fill = community_filt),concavity = 100,colour = "transparent",alpha=0.15)+
+  geom_edge_link(aes(color = sign,edge_width=abs(cor)),alpha=0.6) +
+  guides(edge_alpha = "none") +
+  scale_edge_width(range = c(0.2,3),name="Spearman\ncorrelation\nstrength")+
+  scale_edge_color_manual(values=c("#f46d43","#74add1"),name="Correlation\nsign")+
+  scale_fill_manual(values=c("#4393c3","#d6604d","#e9a3c9","#ffffbf","#7fbf7b"))+
+  geom_node_point(aes(fill=type), size = 4,shape=21) +
+  geom_node_text(aes(label = name),size=3,vjust=1.7,hjust=0.4) +
+  theme_void()+
+  theme(legend.position = "bottom")
+
+```
+
+
+### Heatmap 
+This heatmap uses the same correlation data as the networks above, at an FDR p-value<0.1.  
+
+
+```{r}
+halla_hm<-links %>% dplyr::select(to,from,cor) %>% pivot_wider(names_from=from,values_from=cor) %>%
+  data.frame()
+
+halla_hm[is.na(halla_hm)]<-0
+rownames(halla_hm)<-halla_hm$to
+halla_hm<-halla_hm[-1]
+
+```
+
+Fig. S5D  
+(for the paper this figure was rotated)
+
+```{r,fig.width=10,fig.height=10}
+
+
+ggheatmap(halla_hm,Rowv=FALSE,Colv=FALSE, grid_color="#cfcfcf",grid_size=0.01,text_position_cols="top",
+          scale_fill_gradient_fun = ggplot2::scale_fill_gradient2(
+            low="#d73027",
+            high="#4575b4",
+            midpoint = 0,
+            limits=c(-0.8,0.8)
+          ))
+
+```
+
+
+--------------------------------------------------------------------------------------------------------
+
+# Analysis of temporal dynamics for mice F2 and F5
+
+## PCA on Aitchinson distances for each dataset: mutations, microbiome and ASVs
+
+The PCA plot below is saved as `dynamics_aitchinson_PCA_allGenes.pdf`. The lines connect points of the same mouse, in a sequential order, with the arrow indicating day 27, which is the first time point for which we have data for all datasets. Each PCA was calculated per mouse.
+
+```{r}
+# load dataframes for mutation temporal dynamics
+dynamics_long_annot<-read_xlsx("analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat_woutLowConfMutations_withAnnotations_c.xlsx")
+
+#remove zeroes and samples from days 0 and 13 (these are not present in metabolomics/asvs) and one duplicate row
+dynamics_long_annot<-dynamics_long_annot %>% subset(frequency>0 & day>=27)
+dynamics_long_annot<-dynamics_long_annot %>% 
+  group_by(seq_id,position,mutation,annotation,locus_name,sample) %>%
+  slice(which.max(frequency)) %>%
+  ungroup()
+
+# get metadata
+metadata<-dynamics_long_annot %>% dplyr::select(sample,day,mouse,diet_week) %>% dplyr::distinct() %>% data.frame() %>% arrange(sample)
+rownames(metadata)<-metadata$sample
+metadata<-metadata[-1]
+
+
+
+#create column for mutation identity
+dynamics_long_annot$mutationID<-paste(dynamics_long_annot$seq_id,dynamics_long_annot$position,
+                                      dynamics_long_annot$mutation,
+                                      sep="_")
+
+# create data frame summarised by gene
+dynamics_long_freqGene<-dynamics_long_annot %>% 
+  dplyr::select(seq_id,locus_name,description,day,mouse,sample,diet,diet_week,frequency) %>%
+  group_by(seq_id,locus_name,description,day,mouse,sample,diet,diet_week) %>%
+  summarise(freq_gene=sum(frequency)) %>%
+  mutate(freq_gene_corr=ifelse(freq_gene>1,1,freq_gene)) %>%
+  data.frame()
+
+
+#format to matrix
+dynamics_long_mat<-dynamics_long_annot %>%
+  dplyr::select(mutationID,sample,frequency) %>%
+  pivot_wider(names_from=sample,values_from=frequency) %>%
+  data.frame()
+dynamics_long_mat[is.na(dynamics_long_mat)]<-0
+rownames(dynamics_long_mat)<-dynamics_long_mat$mutationID
+dynamics_long_mat<-dynamics_long_mat[-1]
+
+dynamics_long_freqGene_mat<-dynamics_long_freqGene %>%
+  dplyr::select(locus_name,sample,freq_gene_corr) %>%
+  pivot_wider(names_from=sample,values_from=freq_gene_corr) %>%
+  data.frame()
+
+dynamics_long_freqGene_mat[is.na(dynamics_long_freqGene_mat)]<-0
+rownames(dynamics_long_freqGene_mat)<-dynamics_long_freqGene_mat$locus_name
+dynamics_long_freqGene_mat<-dynamics_long_freqGene_mat[-1]
+
+
+
+#MUTATIONS
+
+dynamics_physeq<-phyloseq(sample_data(metadata), otu_table(dynamics_long_mat,taxa_are_rows = T))
+# saveRDS(dynamics_physeq,"analysis/multiomics/dynamics_mutations_phyloseq.rds")
+
+dynamics_freqGene_physeq<-phyloseq(sample_data(metadata), otu_table(dynamics_long_freqGene_mat,taxa_are_rows = T))
+
+# create a phyloseq object per mouse
+dynamics_freqGene_physeq_F2<-subset_samples(dynamics_freqGene_physeq,mouse=="F2")
+dynamics_freqGene_physeq_F5<-subset_samples(dynamics_freqGene_physeq,mouse=="F5")
+
+
+#remove taxa whose abundance is zero
+keepTaxa = which(taxa_sums(dynamics_freqGene_physeq_F2) > 0) %>% names()
+dynamics_freqGene_physeq_F2 = prune_taxa(keepTaxa, dynamics_freqGene_physeq_F2)
+
+keepTaxa = which(taxa_sums(dynamics_freqGene_physeq_F5) > 0) %>% names()
+dynamics_freqGene_physeq_F5 = prune_taxa(keepTaxa, dynamics_freqGene_physeq_F5)
+
+#transform to CLR
+dynamics_freqGene_physeq_F2_clr<-transform_popSeq(dynamics_freqGene_physeq_F2,transform = "clr")
+dynamics_freqGene_physeq_F5_clr<-transform_popSeq(dynamics_freqGene_physeq_F5,transform = "clr")
+
+#transform phyloseq objects to data frame
+dynamics_freqGene_physeq_F2_clr_melt<-psmelt(dynamics_freqGene_physeq_F2_clr) %>% arrange(OTU,day)
+dynamics_freqGene_physeq_F5_clr_melt<-psmelt(dynamics_freqGene_physeq_F5_clr) %>% arrange(OTU,day)
+
+
+######## 
+# ASVS
+
+
+#load phyloseq object
+
+metadata_asvs<-read_tsv("analysis/multiomics/microbiome/mapping_file_copy_13102020.tsv")
+
+metadata_asvs$mouse<-word(metadata_asvs$SampleID, start = 2L, end = 2L, sep = fixed("_"))
+metadata_asvs<-metadata_asvs %>% dplyr::rename(day=Time_numeric) %>% arrange(day,mouse) %>% data.frame()
+rownames(metadata_asvs)<-metadata_asvs$SampleID
+
+
+dynamics_asvs_physeq<-qza_to_phyloseq(
+    features="analysis/multiomics/microbiome/table_noSD.qza",
+    tree="analysis/multiomics/microbiome/rooted-tree.qza",
+    taxonomy="analysis/multiomics/microbiome/taxonomy_silva.qza"
+    )
+
+sample_data(dynamics_asvs_physeq)<-metadata_asvs
+
+
+# keep only day mice F2 and F5 samples
+dynamics_asvs_physeq<-subset_samples(dynamics_asvs_physeq,mouse %in% c("F2","F5"))
+dynamics_asvs_physeq<-subset_samples(dynamics_asvs_physeq,!Time=="Day83")
+
+#edit metadata
+metadata_asvs<-sample_data(dynamics_asvs_physeq) %>% data.frame()
+metadata_asvs<-left_join(metadata_asvs,metadata)
+rownames(metadata_asvs)<-metadata_asvs$SampleID
+sample_data(dynamics_asvs_physeq)<-metadata_asvs
+
+
+# create a phyloseq object per mouse
+dynamics_asvs_physeq_F2<-subset_samples(dynamics_asvs_physeq,mouse=="F2")
+dynamics_asvs_physeq_F5<-subset_samples(dynamics_asvs_physeq,mouse=="F5")
+
+#remove taxa whose abundance is zero
+keepTaxa = which(taxa_sums(dynamics_asvs_physeq_F2) > 0) %>% names()
+dynamics_asvs_physeq_F2 = prune_taxa(keepTaxa, dynamics_asvs_physeq_F2)
+
+keepTaxa = which(taxa_sums(dynamics_asvs_physeq_F5) > 0) %>% names()
+dynamics_asvs_physeq_F5 = prune_taxa(keepTaxa, dynamics_asvs_physeq_F5)
+
+#transform to CLR
+dynamics_asvs_physeq_F2_clr<-microbiome::transform(dynamics_asvs_physeq_F2,transform = "clr")
+dynamics_asvs_physeq_F5_clr<-microbiome::transform(dynamics_asvs_physeq_F5,transform = "clr")
+
+#transform phyloseq objects to data frame
+dynamics_asvs_physeq_F2_clr_melt<-psmelt(dynamics_asvs_physeq_F2_clr) %>% arrange(OTU,day) %>% select(Sample,OTU,Abundance,day,mouse,diet_week)
+
+dynamics_asvs_physeq_F5_clr_melt<-psmelt(dynamics_asvs_physeq_F5_clr) %>% arrange(OTU,day) %>% select(Sample,OTU,Abundance,day,mouse,diet_week)
+
+
+#ordinate
+dynamics_asvs_physeq_F2_clr_ord <- phyloseq::ordinate(dynamics_asvs_physeq_F2_clr, distance = "euclidean",method = "RDA")
+dynamics_asvs_physeq_F5_clr_ord <- phyloseq::ordinate(dynamics_asvs_physeq_F5_clr, distance = "euclidean",method = "RDA")
+
+
+#pca
+
+pca_asvs_F2<-phyloseq::plot_ordination(dynamics_asvs_physeq_F2_clr, dynamics_asvs_physeq_F2_clr_ord)$data %>% arrange(day,mouse)
+
+pca_asvs_F5<-phyloseq::plot_ordination(dynamics_asvs_physeq_F5_clr, dynamics_asvs_physeq_F5_clr_ord)$data %>% arrange(day,mouse)
+
+pca_asvs<-bind_rows(pca_asvs_F2,pca_asvs_F5)
+pca_asvs$type<-rep("asvs",dim(pca_asvs)[1])
+pca_asvs<-pca_asvs %>% select(PC1,PC2,day,mouse,diet_week,type)
+
+
+### METABOLOMICS
+# load data
+metab<-read_xlsx("data/suppl_table_metab.xlsx",sheet=2)
+
+mice<-read_csv("data/mouse_codes.csv")
+
+# get old name ids, which are the same that were used for the genomics and the microbiome
+metab<-left_join(mice,metab,by=c("mouse_id_new"="Mouse_ID"))
+
+metab$sampleID<-paste0("D",metab$Day,"_",metab$mouse_id_old)
+
+# reformat for halla
+dynamics_metabolites<- metab %>% 
+  subset(mouse_id_old %in% c("F2","F5")) %>%
+  dplyr::select(mouse_id_old,Day,Acetate:Urea) %>%
+  pivot_longer(!mouse_id_old & !Day,names_to = "metabolite",values_to="conc") %>%
+  subset(Day>=27) %>%
+  mutate(mouse_id_old=paste0("D",Day,"_",mouse_id_old)) %>%
+  arrange(mouse_id_old) %>%
+  dplyr::select(-Day) %>%
+  pivot_wider(names_from = mouse_id_old,values_from=conc) %>%
+  as.data.frame()
+
+rownames(dynamics_metabolites)<-dynamics_metabolites$metabolite
+dynamics_metabolites<-dynamics_metabolites[-1]
+
+
+dynamics_metabolites_physeq<-phyloseq(sample_data(metadata), otu_table(dynamics_metabolites,taxa_are_rows = T))
+
+# create a phyloseq object per mouse
+dynamics_metabolites_physeq_F2<-subset_samples(dynamics_metabolites_physeq,mouse=="F2")
+dynamics_metabolites_physeq_F5<-subset_samples(dynamics_metabolites_physeq,mouse=="F5")
+
+#remove taxa whose abundance is zero
+keepTaxa = which(taxa_sums(dynamics_metabolites_physeq_F2) > 0) %>% names()
+dynamics_metabolites_physeq_F2 = prune_taxa(keepTaxa, dynamics_metabolites_physeq_F2)
+
+keepTaxa = which(taxa_sums(dynamics_metabolites_physeq_F5) > 0) %>% names()
+dynamics_metabolites_physeq_F5 = prune_taxa(keepTaxa, dynamics_metabolites_physeq_F5)
+
+#transform to CLR
+dynamics_metabolites_physeq_F2_clr<-microbiome::transform(dynamics_metabolites_physeq_F2,transform = "clr")
+dynamics_metabolites_physeq_F5_clr<-microbiome::transform(dynamics_metabolites_physeq_F5,transform = "clr")
+
+
+#transform phyloseq objects to data frame
+dynamics_metabolites_physeq_F2_clr_melt<-psmelt(dynamics_metabolites_physeq_F2_clr) %>% arrange(OTU,day) %>% select(Sample,OTU,Abundance,day,mouse,diet_week)
+
+dynamics_metabolites_physeq_F5_clr_melt<-psmelt(dynamics_metabolites_physeq_F5_clr) %>% arrange(OTU,day) %>% select(Sample,OTU,Abundance,day,mouse,diet_week)
+
+
+#ordinate
+dynamics_metabolites_physeq_F2_clr_ord <- phyloseq::ordinate(dynamics_metabolites_physeq_F2_clr, distance = "euclidean",method = "RDA")
+dynamics_metabolites_physeq_F5_clr_ord <- phyloseq::ordinate(dynamics_metabolites_physeq_F5_clr, distance = "euclidean",method = "RDA")
+
+
+# pca
+
+pca_metabolites_F2<-phyloseq::plot_ordination(dynamics_metabolites_physeq_F2_clr, dynamics_metabolites_physeq_F2_clr_ord)$data %>% arrange(day,mouse)
+
+pca_metabolites_F5<-phyloseq::plot_ordination(dynamics_metabolites_physeq_F5_clr, dynamics_metabolites_physeq_F5_clr_ord)$data %>% arrange(day,mouse)
+
+pca_metabolites<-bind_rows(pca_metabolites_F2,pca_metabolites_F5)
+pca_metabolites$type<-rep("metabolites",dim(pca_metabolites)[1])
+
+
+```
+
+
+
+## differences in sparsity and number of features  
+
+I thought that it might be possible that there are differences in the number of features per dataset and/or the level of sparsity (i.e. percentage of zeroes) in each dataset. So I checked for this
+
+```{r}
+#standard sparsity F2
+dynamics_freqGene_physeq_tab<-otu_table(dynamics_freqGene_physeq_F2) %>% data.frame()
+
+dynamics_asvs_physeq_tab<-otu_table(dynamics_asvs_physeq_F2) %>% data.frame()
+
+dynamics_metabolites_physeq_tab<-otu_table(dynamics_metabolites_physeq_F2) %>% data.frame()
+
+#standard sparsity F5
+dynamics_freqGene_physeq_tab<-otu_table(dynamics_freqGene_physeq_F5) %>% data.frame()
+
+dynamics_asvs_physeq_tab<-otu_table(dynamics_asvs_physeq_F5) %>% data.frame()
+
+dynamics_metabolites_physeq_tab<-otu_table(dynamics_metabolites_physeq_F5) %>% data.frame()
+```
+
+MOUSE F2, mutations  
+
+Sparsity: `r sum(dynamics_freqGene_physeq_tab == 0)/(dim(dynamics_freqGene_physeq_tab)[1]*dim(dynamics_freqGene_physeq_tab)[2])`  
+No. features: `r ntaxa(dynamics_freqGene_physeq_F2)`  
+
+MOUSE F2, metabolites  
+
+Sparsity: `r sum(dynamics_metabolites_physeq_tab == 0)/(dim(dynamics_metabolites_physeq_tab)[1]*dim(dynamics_metabolites_physeq_tab)[2])`  
+No. features: `r ntaxa(dynamics_metabolites_physeq_F2)`  
+
+MOUSE F2, asvs  
+
+Sparsity: `r sum(dynamics_asvs_physeq_tab == 0)/(dim(dynamics_asvs_physeq_tab)[1]*dim(dynamics_asvs_physeq_tab)[2])`  
+No. features: `r ntaxa(dynamics_asvs_physeq_F2)`  
+
+
+MOUSE F5, mutations  
+
+Sparsity: `r sum(dynamics_freqGene_physeq_tab == 0)/(dim(dynamics_freqGene_physeq_tab)[1]*dim(dynamics_freqGene_physeq_tab)[2])`  
+No. features: `r ntaxa(dynamics_freqGene_physeq_F5)`  
+
+MOUSE F5, metabolites  
+
+Sparsity: `r sum(dynamics_metabolites_physeq_tab == 0)/(dim(dynamics_metabolites_physeq_tab)[1]*dim(dynamics_metabolites_physeq_tab)[2])`  
+No. features: `r ntaxa(dynamics_metabolites_physeq_F5)`  
+
+MOUSE F5, asvs  
+
+Sparsity: `r sum(dynamics_asvs_physeq_tab == 0)/(dim(dynamics_asvs_physeq_tab)[1]*dim(dynamics_asvs_physeq_tab)[2])`  
+No. features: `r ntaxa(dynamics_asvs_physeq_F5)`  
+
+
+This indicated that the differences in sparsity and no. of features were greater for the mutation data, relative to the others. Thus, I filtered the data for each mouse and kept only genes that appeared in at least 2 samples (i.e. timepoints).
+```{r}
+# select mutations present in at least 2 samples, mouse F2
+dynamics_freqGene_physeq_F2_min2<-microbiome::core(dynamics_freqGene_physeq_F2,prevalence = 1/nsamples(dynamics_freqGene_physeq_F2),detection = 0)
+
+dynamics_freqGene_physeq_min2_tab<-otu_table(dynamics_freqGene_physeq_F2_min2) %>% data.frame()
+
+# select mutations present in at least 2 samples, mouse F5
+dynamics_freqGene_physeq_F5_min2<-microbiome::core(dynamics_freqGene_physeq_F5,prevalence = 1/nsamples(dynamics_freqGene_physeq_F5),detection = 0)
+
+dynamics_freqGene_physeq_min2_tab<-otu_table(dynamics_freqGene_physeq_F5_min2) %>% data.frame()
+
+
+
+
+```
+
+After filtering, we obtain the following:  
+
+MOUSE F2, mutations  
+
+Sparsity: `r sum(dynamics_freqGene_physeq_min2_tab == 0)/(dim(dynamics_freqGene_physeq_min2_tab)[1]*dim(dynamics_freqGene_physeq_min2_tab)[2])`  
+No. features: `r ntaxa(dynamics_freqGene_physeq_F2_min2)`  
+
+MOUSE F5, mutations  
+
+Sparsity: `r sum(dynamics_freqGene_physeq_min2_tab == 0)/(dim(dynamics_freqGene_physeq_min2_tab)[1]*dim(dynamics_freqGene_physeq_min2_tab)[2])`  
+No. features: `r ntaxa(dynamics_freqGene_physeq_F5_min2)`  
+
+## PCA on Aitchinson distances for each dataset: mutations, microbiome and ASVs
+
+This was used for Fig 6F
+
+```{r,fig.width=10,fig.height=8}
+dynamics_freqGene_physeq_F2_min2_clr<-transform_popSeq(dynamics_freqGene_physeq_F2_min2,transform="clr")
+dynamics_freqGene_physeq_F5_min2_clr<-transform_popSeq(dynamics_freqGene_physeq_F5_min2,transform="clr")
+
+#ordination
+dynamics_freqGene_physeq_F2_min2_clr_ord <- phyloseq::ordinate(dynamics_freqGene_physeq_F2_min2_clr, distance = "euclidean",method = "RDA")
+dynamics_freqGene_physeq_F5_min2_clr_ord <- phyloseq::ordinate(dynamics_freqGene_physeq_F5_min2_clr, distance = "euclidean",method = "RDA")
+
+#pca
+pca_mut_F2<-phyloseq::plot_ordination(dynamics_freqGene_physeq_F2_min2_clr, dynamics_freqGene_physeq_F2_min2_clr_ord)$data %>% arrange(day,mouse)
+pca_mut_F5<-phyloseq::plot_ordination(dynamics_freqGene_physeq_F5_min2_clr, dynamics_freqGene_physeq_F5_min2_clr_ord)$data %>% arrange(day,mouse)
+
+
+pca_mut<-bind_rows(pca_mut_F2,pca_mut_F5)
+pca_mut$type<-rep("mutations",dim(pca_metabolites)[1])
+
+pca_all_df<-bind_rows(pca_mut,pca_metabolites,pca_asvs) %>%
+  mutate(type = fct_relevel(type, "mutations","metabolites","asvs"))
+
+ggplot(pca_all_df,aes(x=PC1,y=PC2))+ 
+  geom_path(aes(group=mouse),color="grey",
+            arrow = arrow(angle = 20, ends = "first", type = "closed"))+
+  geom_point(aes(fill=diet_week),size=6,shape=21)+
+  geom_text(aes(label=round(day/7,0)))+
+  theme_cowplot()+ # This is the theme that we used in ggplot2
+  scale_fill_manual(values=c("#c4c4c4","#ffa4ab","#878787"),name="Diet")+ # Color of the points
+  scale_x_continuous(breaks=c(-2,0,2))+
+  background_grid(major="xy")+
+  theme(legend.position = "top",legend.justification = "center")+
+  facet_grid(mouse~type,scales="free",labeller = labeller(mouse=c("F2"="AD1","F5"="AD4")))
+
+```
+
+Plots of PC1 and PC2 values overtime 
+
+```{r}
+pc1_d<-ggplot(pca_all_df,aes(x=day,y=PC1))+
+  geom_line(aes(group=type,color=type),size=1)+
+  geom_point(aes(fill=type),size=3,shape=21)+
+  facet_wrap(~mouse,labeller = labeller(mouse=c("F2"="AD1","F5"="AD4")),ncol=1)+
+  scale_fill_manual(values = c("#7fbf7b", "#ffffbf","#e9a3c9"),name="",
+                    labels=c("mutations","metabolites","16S variants"))+
+  scale_color_manual(values = c("#7fbf7b", "#ffffbf","#e9a3c9"),name="",
+                    labels=c("mutations","metabolites","16S variants"))+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle=90,vjust = 0.5,size = 10),
+        axis.text.y=element_text(size=10),
+        legend.position = "top")+
+  background_grid(major="xy")+
+  xlab("Day post-colonization")+
+  ylab("PC1")
+
+
+pc2_d<-ggplot(pca_all_df,aes(x=day,y=PC2))+
+  geom_line(aes(group=type,color=type),size=1)+
+  geom_point(aes(fill=type),size=3,shape=21)+
+  facet_wrap(~mouse,labeller = labeller(mouse=c("F2"="AD1","F5"="AD4")),ncol=1)+
+  scale_fill_manual(values = c("#7fbf7b", "#ffffbf","#e9a3c9"),name="",
+                    labels=c("mutations","metabolites","16S variants"))+
+  scale_color_manual(values = c("#7fbf7b", "#ffffbf","#e9a3c9"),name="",
+                    labels=c("mutations","metabolites","16S variants"))+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle=90,vjust = 0.5,size = 10),
+        axis.text.y=element_text(size=10),
+        legend.position = "top")+
+  background_grid(major="xy")+
+  xlab("Day post-colonization")+
+  ylab("PC2")
+
+
+```
+
+### Statistical analysis based on the Aitchinson distance or the PCA
+
+For each dataset per mouse, I carry the following analysis:  
+
+- Permanova and betadisper on the Aitchinson distances;  
+- Anova on each principal component  
+
+**mutation data**  
+MOUSE F2
+Summary: no significant differences in either permanova or betadisper. On anova for each PC, there is a significant difference on PC1.
+
+```{r}
+
+#vegdist calculates the pairwise distances between all the individuals
+set.seed(1)
+dynamics_freqGene_physeq_F2_min2_clr_euclid<-vegdist(otu_table(dynamics_freqGene_physeq_F2_min2_clr) %>% t() %>% as.matrix(), 
+                                method = 'euclidean',binary = FALSE)
+
+```
+
+
+permanova
+```{r}
+# PERMANOVA: We can use adonis from the vegan package to use PERMANOVA
+set.seed(1)
+adonis(dynamics_freqGene_physeq_F2_min2_clr_euclid~diet_week,data = metadata[metadata$mouse=="F2",], method = 'euclidean')
+
+
+```
+
+betadisper
+```{r}
+# To see if the assumption is met we just compare the dispersion in each group
+dispersion<-betadisper(dynamics_freqGene_physeq_F2_min2_clr_euclid, group =metadata[metadata$mouse=="F2",]$diet_week)
+set.seed(1)
+permutest(dispersion) # From the p-value we can see that we are not breaking the assumption
+```
+
+ANOVA: PC1
+
+anova
+```{r}
+m1<-lm(data=pca_mut_F2,PC1~diet_week)
+
+anova(m1)
+
+
+```
+
+diagnostics plot: results look ok, no sign of violation of assumptions
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+
+ANOVA: PC2
+
+anova
+```{r}
+m1<-lm(data=pca_mut_F2,PC2~diet_week)
+
+anova(m1)
+
+```
+
+
+diagnostics plot: results do not look great on qqplot
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+MOUSE F5
+Summary: no significant differences in either permanova or betadisper. On anova for each PC, there is a significant difference on PC1.
+
+```{r}
+
+#vegdist calculates the pairwise distances between all the individuals
+set.seed(1)
+dynamics_freqGene_physeq_F5_min2_clr_euclid<-vegdist(otu_table(dynamics_freqGene_physeq_F5_min2_clr) %>% t() %>% as.matrix(), 
+                                method = 'euclidean',binary = FALSE)
+
+```
+
+PERMANOVA
+```{r}
+# PERMANOVA: We can use adonis from the vegan package to use PERMANOVA
+set.seed(1)
+adonis(dynamics_freqGene_physeq_F5_min2_clr_euclid~diet_week,data = metadata[metadata$mouse=="F5",], method = 'euclidean')
+
+
+```
+
+BETADISPER
+```{r}
+# To see if the assumption is met we just compare the dispersion in each group
+dispersion<-betadisper(dynamics_freqGene_physeq_F5_min2_clr_euclid, group =metadata[metadata$mouse=="F5",]$diet_week)
+set.seed(1)
+permutest(dispersion) # From the p-value we can see that we are not breaking the assumption
+```
+
+ANOVA: PC1
+
+anova
+```{r}
+m1<-lm(data=pca_mut_F5,PC1~diet_week)
+
+anova(m1)
+
+
+```
+
+diagnostics plot: results do not look great on residuals vs fitted (non-homogeneous variance)
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+
+ANOVA: PC2
+
+anova
+```{r}
+m1<-lm(data=pca_mut_F5,PC2~diet_week)
+
+anova(m1)
+
+```
+
+
+diagnostics plot: results look ok
+```{r}
+par(mfrow=c(2,2))
+plot(m1)
+dev.off()
+```
+
+**NOTE** the statistics for the *asvs* and *metabolites* remain the same as before.
+
+### Consecutive Aitchinson distances
+
+```{r}
+## MUTATIONS
+#F2
+set.seed(3)
+dynamics_freqGene_physeq_F2_min2_clr_dm<-phyloseq::distance(dynamics_freqGene_physeq_F2_min2_clr,method = "euclidean")
+
+dynamics_freqGene_physeq_F2_min2_clr_dm_df<-reshape2::melt(as.matrix(dynamics_freqGene_physeq_F2_min2_clr_dm), varnames = c("sample_row", "sample_col")) %>%
+  subset(as.numeric(sample_row) > as.numeric(sample_col))
+
+
+dynamics_freqGene_physeq_F2_min2_clr_dm_df$wb<-ifelse(word(dynamics_freqGene_physeq_F2_min2_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))==
+                                                     word(dynamics_freqGene_physeq_F2_min2_clr_dm_df$sample_col, start = 2L, end = 2L, sep = fixed("_")),
+                                                   "within","between")
+dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_row<-word(dynamics_freqGene_physeq_F2_min2_clr_dm_df$sample_row, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_row<-str_remove(dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_row,"D") %>% as.numeric()
+
+dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_col<-word(dynamics_freqGene_physeq_F2_min2_clr_dm_df$sample_col, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_col<-str_remove(dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_col,"D") %>% as.numeric()
+
+dynamics_freqGene_physeq_F2_min2_clr_dm_df<-dynamics_freqGene_physeq_F2_min2_clr_dm_df %>% mutate(time_diff=day_row-day_col)
+
+dynamics_freqGene_physeq_F2_min2_clr_dm_df<-dynamics_freqGene_physeq_F2_min2_clr_dm_df %>% subset(wb=="within" & time_diff %in% c(-7,7,8,-8))
+dynamics_freqGene_physeq_F2_min2_clr_dm_df$mouse<-word(dynamics_freqGene_physeq_F2_min2_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))
+
+dynamics_freqGene_physeq_F2_min2_clr_dm_df$type<-rep("mutations",dim(dynamics_freqGene_physeq_F2_min2_clr_dm_df)[1])
+
+dynamics_freqGene_physeq_F2_min2_clr_dm_df$time<-ifelse(dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_col>dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_row,
+                                                   paste0("[",dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_row,"-",dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_col,"]"),
+                                                   paste0("[",dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_col,"-",dynamics_freqGene_physeq_F2_min2_clr_dm_df$day_row,"]"))
+
+#F5
+set.seed(3)
+dynamics_freqGene_physeq_F5_min2_clr_dm<-phyloseq::distance(dynamics_freqGene_physeq_F5_min2_clr,method = "euclidean")
+
+dynamics_freqGene_physeq_F5_min2_clr_dm_df<-reshape2::melt(as.matrix(dynamics_freqGene_physeq_F5_min2_clr_dm), varnames = c("sample_row", "sample_col")) %>%
+  subset(as.numeric(sample_row) > as.numeric(sample_col))
+
+
+dynamics_freqGene_physeq_F5_min2_clr_dm_df$wb<-ifelse(word(dynamics_freqGene_physeq_F5_min2_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))==
+                                                     word(dynamics_freqGene_physeq_F5_min2_clr_dm_df$sample_col, start = 2L, end = 2L, sep = fixed("_")),
+                                                   "within","between")
+dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_row<-word(dynamics_freqGene_physeq_F5_min2_clr_dm_df$sample_row, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_row<-str_remove(dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_row,"D") %>% as.numeric()
+
+dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_col<-word(dynamics_freqGene_physeq_F5_min2_clr_dm_df$sample_col, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_col<-str_remove(dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_col,"D") %>% as.numeric()
+
+dynamics_freqGene_physeq_F5_min2_clr_dm_df<-dynamics_freqGene_physeq_F5_min2_clr_dm_df %>% mutate(time_diff=day_row-day_col)
+
+dynamics_freqGene_physeq_F5_min2_clr_dm_df<-dynamics_freqGene_physeq_F5_min2_clr_dm_df %>% subset(wb=="within" & time_diff %in% c(-7,7,8,-8))
+dynamics_freqGene_physeq_F5_min2_clr_dm_df$mouse<-word(dynamics_freqGene_physeq_F5_min2_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))
+
+dynamics_freqGene_physeq_F5_min2_clr_dm_df$type<-rep("mutations",dim(dynamics_freqGene_physeq_F5_min2_clr_dm_df)[1])
+
+dynamics_freqGene_physeq_F5_min2_clr_dm_df$time<-ifelse(dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_col>dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_row,
+                                                   paste0("[",dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_row,"-",dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_col,"]"),
+                                                   paste0("[",dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_col,"-",dynamics_freqGene_physeq_F5_min2_clr_dm_df$day_row,"]"))
+
+
+dynamics_freqGene_physeq_clr_dm_df<-bind_rows(dynamics_freqGene_physeq_F2_min2_clr_dm_df,dynamics_freqGene_physeq_F5_min2_clr_dm_df)
+
+
+## ASVS
+#F2
+set.seed(3)
+dynamics_asvs_physeq_F2_clr_dm<-phyloseq::distance(dynamics_asvs_physeq_F2_clr,method = "euclidean")
+
+dynamics_asvs_physeq_F2_clr_dm_df<-reshape2::melt(as.matrix(dynamics_asvs_physeq_F2_clr_dm), varnames = c("sample_row", "sample_col")) %>%
+  subset(as.numeric(sample_row) > as.numeric(sample_col))
+
+
+dynamics_asvs_physeq_F2_clr_dm_df$wb<-ifelse(word(dynamics_asvs_physeq_F2_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))==
+                                                     word(dynamics_asvs_physeq_F2_clr_dm_df$sample_col, start = 2L, end = 2L, sep = fixed("_")),
+                                                   "within","between")
+dynamics_asvs_physeq_F2_clr_dm_df$day_row<-word(dynamics_asvs_physeq_F2_clr_dm_df$sample_row, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_asvs_physeq_F2_clr_dm_df$day_row<-str_remove(dynamics_asvs_physeq_F2_clr_dm_df$day_row,"D") %>% as.numeric()
+
+dynamics_asvs_physeq_F2_clr_dm_df$day_col<-word(dynamics_asvs_physeq_F2_clr_dm_df$sample_col, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_asvs_physeq_F2_clr_dm_df$day_col<-str_remove(dynamics_asvs_physeq_F2_clr_dm_df$day_col,"D") %>% as.numeric()
+
+dynamics_asvs_physeq_F2_clr_dm_df<-dynamics_asvs_physeq_F2_clr_dm_df %>% mutate(time_diff=day_row-day_col)
+
+dynamics_asvs_physeq_F2_clr_dm_df<-dynamics_asvs_physeq_F2_clr_dm_df %>% subset(wb=="within" & time_diff %in% c(-7,7,8,-8))
+dynamics_asvs_physeq_F2_clr_dm_df$mouse<-word(dynamics_asvs_physeq_F2_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))
+
+dynamics_asvs_physeq_F2_clr_dm_df$type<-rep("asvs",dim(dynamics_asvs_physeq_F2_clr_dm_df)[1])
+
+dynamics_asvs_physeq_F2_clr_dm_df$time<-ifelse(dynamics_asvs_physeq_F2_clr_dm_df$day_col>dynamics_asvs_physeq_F2_clr_dm_df$day_row,
+                                                   paste0("[",dynamics_asvs_physeq_F2_clr_dm_df$day_row,"-",dynamics_asvs_physeq_F2_clr_dm_df$day_col,"]"),
+                                                   paste0("[",dynamics_asvs_physeq_F2_clr_dm_df$day_col,"-",dynamics_asvs_physeq_F2_clr_dm_df$day_row,"]"))
+
+#F5
+set.seed(3)
+dynamics_asvs_physeq_F5_clr_dm<-phyloseq::distance(dynamics_asvs_physeq_F5_clr,method = "euclidean")
+
+dynamics_asvs_physeq_F5_clr_dm_df<-reshape2::melt(as.matrix(dynamics_asvs_physeq_F5_clr_dm), varnames = c("sample_row", "sample_col")) %>%
+  subset(as.numeric(sample_row) > as.numeric(sample_col))
+
+
+dynamics_asvs_physeq_F5_clr_dm_df$wb<-ifelse(word(dynamics_asvs_physeq_F5_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))==
+                                                     word(dynamics_asvs_physeq_F5_clr_dm_df$sample_col, start = 2L, end = 2L, sep = fixed("_")),
+                                                   "within","between")
+dynamics_asvs_physeq_F5_clr_dm_df$day_row<-word(dynamics_asvs_physeq_F5_clr_dm_df$sample_row, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_asvs_physeq_F5_clr_dm_df$day_row<-str_remove(dynamics_asvs_physeq_F5_clr_dm_df$day_row,"D") %>% as.numeric()
+
+dynamics_asvs_physeq_F5_clr_dm_df$day_col<-word(dynamics_asvs_physeq_F5_clr_dm_df$sample_col, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_asvs_physeq_F5_clr_dm_df$day_col<-str_remove(dynamics_asvs_physeq_F5_clr_dm_df$day_col,"D") %>% as.numeric()
+
+dynamics_asvs_physeq_F5_clr_dm_df<-dynamics_asvs_physeq_F5_clr_dm_df %>% mutate(time_diff=day_row-day_col)
+
+dynamics_asvs_physeq_F5_clr_dm_df<-dynamics_asvs_physeq_F5_clr_dm_df %>% subset(wb=="within" & time_diff %in% c(-7,7,8,-8))
+dynamics_asvs_physeq_F5_clr_dm_df$mouse<-word(dynamics_asvs_physeq_F5_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))
+
+dynamics_asvs_physeq_F5_clr_dm_df$type<-rep("asvs",dim(dynamics_asvs_physeq_F5_clr_dm_df)[1])
+
+dynamics_asvs_physeq_F5_clr_dm_df$time<-ifelse(dynamics_asvs_physeq_F5_clr_dm_df$day_col>dynamics_asvs_physeq_F5_clr_dm_df$day_row,
+                                                   paste0("[",dynamics_asvs_physeq_F5_clr_dm_df$day_row,"-",dynamics_asvs_physeq_F5_clr_dm_df$day_col,"]"),
+                                                   paste0("[",dynamics_asvs_physeq_F5_clr_dm_df$day_col,"-",dynamics_asvs_physeq_F5_clr_dm_df$day_row,"]"))
+
+
+dynamics_asvs_physeq_clr_dm_df<-bind_rows(dynamics_asvs_physeq_F2_clr_dm_df,dynamics_asvs_physeq_F5_clr_dm_df)
+
+
+## METABOLITES
+#F2
+set.seed(3)
+dynamics_metabolites_physeq_F2_clr_dm<-phyloseq::distance(dynamics_metabolites_physeq_F2_clr,method = "euclidean")
+
+dynamics_metabolites_physeq_F2_clr_dm_df<-reshape2::melt(as.matrix(dynamics_metabolites_physeq_F2_clr_dm), varnames = c("sample_row", "sample_col")) %>%
+  subset(as.numeric(sample_row) > as.numeric(sample_col))
+
+
+dynamics_metabolites_physeq_F2_clr_dm_df$wb<-ifelse(word(dynamics_metabolites_physeq_F2_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))==
+                                                     word(dynamics_metabolites_physeq_F2_clr_dm_df$sample_col, start = 2L, end = 2L, sep = fixed("_")),
+                                                   "within","between")
+dynamics_metabolites_physeq_F2_clr_dm_df$day_row<-word(dynamics_metabolites_physeq_F2_clr_dm_df$sample_row, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_metabolites_physeq_F2_clr_dm_df$day_row<-str_remove(dynamics_metabolites_physeq_F2_clr_dm_df$day_row,"D") %>% as.numeric()
+
+dynamics_metabolites_physeq_F2_clr_dm_df$day_col<-word(dynamics_metabolites_physeq_F2_clr_dm_df$sample_col, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_metabolites_physeq_F2_clr_dm_df$day_col<-str_remove(dynamics_metabolites_physeq_F2_clr_dm_df$day_col,"D") %>% as.numeric()
+
+dynamics_metabolites_physeq_F2_clr_dm_df<-dynamics_metabolites_physeq_F2_clr_dm_df %>% mutate(time_diff=day_row-day_col)
+
+dynamics_metabolites_physeq_F2_clr_dm_df<-dynamics_metabolites_physeq_F2_clr_dm_df %>% subset(wb=="within" & time_diff %in% c(-7,7,8,-8))
+dynamics_metabolites_physeq_F2_clr_dm_df$mouse<-word(dynamics_metabolites_physeq_F2_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))
+
+dynamics_metabolites_physeq_F2_clr_dm_df$type<-rep("metabolites",dim(dynamics_metabolites_physeq_F2_clr_dm_df)[1])
+
+dynamics_metabolites_physeq_F2_clr_dm_df$time<-ifelse(dynamics_metabolites_physeq_F2_clr_dm_df$day_col>dynamics_metabolites_physeq_F2_clr_dm_df$day_row,
+                                                   paste0("[",dynamics_metabolites_physeq_F2_clr_dm_df$day_row,"-",dynamics_metabolites_physeq_F2_clr_dm_df$day_col,"]"),
+                                                   paste0("[",dynamics_metabolites_physeq_F2_clr_dm_df$day_col,"-",dynamics_metabolites_physeq_F2_clr_dm_df$day_row,"]"))
+
+#F5
+set.seed(3)
+dynamics_metabolites_physeq_F5_clr_dm<-phyloseq::distance(dynamics_metabolites_physeq_F5_clr,method = "euclidean")
+
+dynamics_metabolites_physeq_F5_clr_dm_df<-reshape2::melt(as.matrix(dynamics_metabolites_physeq_F5_clr_dm), varnames = c("sample_row", "sample_col")) %>%
+  subset(as.numeric(sample_row) > as.numeric(sample_col))
+
+
+dynamics_metabolites_physeq_F5_clr_dm_df$wb<-ifelse(word(dynamics_metabolites_physeq_F5_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))==
+                                                     word(dynamics_metabolites_physeq_F5_clr_dm_df$sample_col, start = 2L, end = 2L, sep = fixed("_")),
+                                                   "within","between")
+dynamics_metabolites_physeq_F5_clr_dm_df$day_row<-word(dynamics_metabolites_physeq_F5_clr_dm_df$sample_row, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_metabolites_physeq_F5_clr_dm_df$day_row<-str_remove(dynamics_metabolites_physeq_F5_clr_dm_df$day_row,"D") %>% as.numeric()
+
+dynamics_metabolites_physeq_F5_clr_dm_df$day_col<-word(dynamics_metabolites_physeq_F5_clr_dm_df$sample_col, start = 1L, end = 1L, sep = fixed("_"))
+dynamics_metabolites_physeq_F5_clr_dm_df$day_col<-str_remove(dynamics_metabolites_physeq_F5_clr_dm_df$day_col,"D") %>% as.numeric()
+
+dynamics_metabolites_physeq_F5_clr_dm_df<-dynamics_metabolites_physeq_F5_clr_dm_df %>% mutate(time_diff=day_row-day_col)
+
+dynamics_metabolites_physeq_F5_clr_dm_df<-dynamics_metabolites_physeq_F5_clr_dm_df %>% subset(wb=="within" & time_diff %in% c(-7,7,8,-8))
+dynamics_metabolites_physeq_F5_clr_dm_df$mouse<-word(dynamics_metabolites_physeq_F5_clr_dm_df$sample_row, start = 2L, end = 2L, sep = fixed("_"))
+
+dynamics_metabolites_physeq_F5_clr_dm_df$type<-rep("metabolites",dim(dynamics_metabolites_physeq_F5_clr_dm_df)[1])
+
+dynamics_metabolites_physeq_F5_clr_dm_df$time<-ifelse(dynamics_metabolites_physeq_F5_clr_dm_df$day_col>dynamics_metabolites_physeq_F5_clr_dm_df$day_row,
+                                                   paste0("[",dynamics_metabolites_physeq_F5_clr_dm_df$day_row,"-",dynamics_metabolites_physeq_F5_clr_dm_df$day_col,"]"),
+                                                   paste0("[",dynamics_metabolites_physeq_F5_clr_dm_df$day_col,"-",dynamics_metabolites_physeq_F5_clr_dm_df$day_row,"]"))
+
+
+dynamics_metabolites_physeq_clr_dm_df<-bind_rows(dynamics_metabolites_physeq_F2_clr_dm_df,dynamics_metabolites_physeq_F5_clr_dm_df)
+
+
+
+
+dynamics_euc_df<-bind_rows(dynamics_freqGene_physeq_clr_dm_df,dynamics_asvs_physeq_clr_dm_df,dynamics_metabolites_physeq_clr_dm_df)
+dynamics_euc_df<-dynamics_euc_df %>%
+  mutate(type = fct_relevel(type, "mutations","metabolites","asvs"))
+
+ai_d<-ggplot(dynamics_euc_df,aes(x=time,y=value,fill=type,group=type))+
+  geom_line(aes(color=type),size=1)+
+  geom_point(shape=21,size=3)+
+  facet_wrap(~mouse,ncol = 1,labeller = labeller(mouse=c("F2"="AD1","F5"="AD4")))+
+  scale_fill_manual(values = c("#7fbf7b", "#ffffbf","#e9a3c9"),name="",
+                    labels=c("mutations","metabolites","16S variants"))+
+  scale_color_manual(values = c("#7fbf7b", "#ffffbf","#e9a3c9"),name="",
+                    labels=c("mutations","metabolites","16S variants"))+
+  theme_cowplot()+
+  theme(axis.text.x = element_text(angle=90,vjust = 0.5,size = 10),
+        axis.text.y=element_text(size=10),
+        legend.position = "top")+
+  background_grid(major="xy")+
+  xlab("Time lag (days)")+
+  ylab("Aitchinson distance")
+```
+
+Fig. S7
+
+```{r,fig.width=10}
+pc1_d+pc2_d+ai_d
+```
+
+Fig. 6E
+
+```{r}
+ggplot(dynamics_euc_df,aes(x=type,y=value,fill=type))+
+  geom_boxplot(alpha=0.5,outlier.shape = NA)+
+  ggbeeswarm::geom_quasirandom(shape=21,size=3)+
+  facet_wrap(~mouse,ncol = 1,labeller = labeller(mouse=c("F2"="AD1","F5"="AD4")))+
+  scale_fill_manual(values = c("#7fbf7b", "#ffffbf","#e9a3c9"),name="",
+                    labels=c("mutations","metabolites","16S variants"))+
+  theme_cowplot()+
+  theme(axis.text.y=element_text(size=10),legend.position = "top")+
+  background_grid(major="xy")+
+  ylab("Aitchinson distance")
+
+
+```
+
+#### Statistics comparing the Aitchinson distances  
+
+This indicates that there is a significant difference between asvs and all other datasets, but not between metabolites and mutations. The model validation plots look ok.
+```{r}
+m1<-lme(value~type,random=~1|mouse,data=dynamics_euc_df,method="ML")
+m2<-lme(value~1,random=~1|mouse,data=dynamics_euc_df,method="ML")
+
+anova(m2,m1)
+
+emmeans::emmeans(m1,pairwise~type)
+
+plot(m1)
+qqnorm(m1)
+
+```
+
+
+
+## Maximum frequency change relative to number of fluctuations
+```{r}
+#MUTATIONS
+dynamics_physeq<-readRDS("analysis/multiomics/dynamics_mutations_phyloseq.rds")
+
+# create a phyloseq object per mouse
+dynamics_physeq_F2<-subset_samples(dynamics_physeq,mouse=="F2")
+dynamics_physeq_F5<-subset_samples(dynamics_physeq,mouse=="F5")
+
+
+dynamics_physeq_F2
+dynamics_physeq_F5
+
+keepTaxa = which(taxa_sums(dynamics_physeq_F2) > 0) %>% names()
+dynamics_physeq_F2 = prune_taxa(keepTaxa, dynamics_physeq_F2)
+keepTaxa = which(taxa_sums(dynamics_physeq_F5) > 0) %>% names()
+dynamics_physeq_F5 = prune_taxa(keepTaxa, dynamics_physeq_F5)
+
+
+dynamics_physeq_mutations<-bind_rows(psmelt(dynamics_physeq_F2),psmelt(dynamics_physeq_F5))
+
+#ASVs
+dynamics_asvs_physeq_F2_rel<-transform(dynamics_asvs_physeq_F2,transform = "compositional")
+dynamics_asvs_physeq_F5_rel<-transform(dynamics_asvs_physeq_F5,transform = "compositional")
+
+keepTaxa = which(taxa_sums(dynamics_asvs_physeq_F2_rel) > 0) %>% names()
+dynamics_asvs_physeq_F2_rel = prune_taxa(keepTaxa, dynamics_asvs_physeq_F2_rel)
+keepTaxa = which(taxa_sums(dynamics_asvs_physeq_F5_rel) > 0) %>% names()
+dynamics_asvs_physeq_F5_rel = prune_taxa(keepTaxa, dynamics_asvs_physeq_F5_rel)
+
+
+dynamics_asvs_physeq<-bind_rows(psmelt(dynamics_asvs_physeq_F2_rel),psmelt(dynamics_asvs_physeq_F5_rel))
+
+
+#METABOLITES
+dynamics_metabolites_physeq_F2_rel<-transform(dynamics_metabolites_physeq_F2,transform = "compositional")
+dynamics_metabolites_physeq_F5_rel<-transform(dynamics_metabolites_physeq_F5,transform = "compositional")
+
+keepTaxa = which(taxa_sums(dynamics_metabolites_physeq_F2_rel) > 0) %>% names()
+dynamics_metabolites_physeq_F2_rel = prune_taxa(keepTaxa, dynamics_metabolites_physeq_F2_rel)
+keepTaxa = which(taxa_sums(dynamics_metabolites_physeq_F5_rel) > 0) %>% names()
+dynamics_metabolites_physeq_F5_rel = prune_taxa(keepTaxa, dynamics_metabolites_physeq_F5_rel)
+
+
+dynamics_metabolites_physeq<-bind_rows(psmelt(dynamics_metabolites_physeq_F2_rel),psmelt(dynamics_metabolites_physeq_F5_rel))
+```
+
+
+#Mutations
+```{r}
+# sort rows and calculate difference between consecuteive timepoints
+
+dynamics_physeq_mutations<-dynamics_physeq_mutations %>%
+  arrange(mouse,OTU,day)
+
+dynamics_physeq_mutations <- dynamics_physeq_mutations %>%
+  group_by(OTU) %>%
+  mutate(diff_freq = Abundance - lag(Abundance, default = first(Abundance))) %>%
+  ungroup()
+
+
+dynamics_physeq_mutations$sign<-ifelse(dynamics_physeq_mutations$diff_freq<0,"n","p")
+
+
+dynamics_physeq_mutations_codes<-dynamics_physeq_mutations %>% 
+  group_by(mouse,OTU) %>%
+  summarise(code = paste(sign,collapse = ""))
+
+
+
+
+dynamics_physeq_mutations_maxChange<-dynamics_physeq_mutations %>% group_by(mouse,OTU) %>% summarise(max_diff_freq=max(abs(diff_freq)))
+
+dynamics_physeq_mutations_maxChange_codes<-left_join(dynamics_physeq_mutations_maxChange,
+                                               dynamics_physeq_mutations_codes)
+
+#count number of fluctuations
+dynamics_physeq_mutations_maxChange_codes$count_code<-str_count(dynamics_physeq_mutations_maxChange_codes$code,"pn|np")
+
+
+
+
+```
+
+
+
+#ASVs
+```{r}
+# sort rows and calculate difference between consecuteive timepoints
+dynamics_asvs_physeq<-dynamics_asvs_physeq %>%
+  arrange(mouse,OTU,day)
+
+dynamics_asvs_physeq <- dynamics_asvs_physeq %>%
+  group_by(OTU) %>%
+  mutate(diff_freq = Abundance - lag(Abundance, default = first(Abundance))) %>%
+  ungroup()
+
+
+dynamics_asvs_physeq$sign<-ifelse(dynamics_asvs_physeq$diff_freq<0,"n","p")
+
+
+dynamics_asvs_physeq_codes<-dynamics_asvs_physeq %>% 
+  group_by(mouse,OTU) %>%
+  summarise(code = paste(sign,collapse = ""))
+
+
+dynamics_asvs_physeq_maxChange<-dynamics_asvs_physeq %>% group_by(mouse,OTU) %>% summarise(max_diff_freq=max(abs(diff_freq)))
+
+dynamics_asvs_physeq_maxChange_codes<-left_join(dynamics_asvs_physeq_maxChange,
+                                                dynamics_asvs_physeq_codes)
+
+#count number of fluctuations
+dynamics_asvs_physeq_maxChange_codes$count_code<-str_count(dynamics_asvs_physeq_maxChange_codes$code,"pn|np")
+
+
+
+
+```
+
+
+#metabolites
+```{r}
+# sort rows and calculate difference between consecuteive timepoints
+dynamics_metabolites_physeq<-dynamics_metabolites_physeq %>%
+  arrange(mouse,OTU,day)
+
+dynamics_metabolites_physeq <- dynamics_metabolites_physeq %>%
+  group_by(OTU) %>%
+  mutate(diff_freq = Abundance - lag(Abundance, default = first(Abundance))) %>%
+  ungroup()
+
+
+dynamics_metabolites_physeq$sign<-ifelse(dynamics_metabolites_physeq$diff_freq<0,"n","p")
+
+
+dynamics_metabolites_physeq_codes<-dynamics_metabolites_physeq %>% 
+  group_by(mouse,OTU) %>%
+  summarise(code = paste(sign,collapse = ""))
+
+
+
+
+dynamics_metabolites_physeq_maxChange<-dynamics_metabolites_physeq %>% group_by(mouse,OTU) %>% summarise(max_diff_freq=max(abs(diff_freq)))
+
+dynamics_metabolites_physeq_maxChange_codes<-left_join(dynamics_metabolites_physeq_maxChange,
+                                                          dynamics_metabolites_physeq_codes)
+
+#count number of fluctuations
+dynamics_metabolites_physeq_maxChange_codes$count_code<-str_count(dynamics_metabolites_physeq_maxChange_codes$code,"pn|np")
+
+
+
+```
+
+
+Fig. S6A
+```{r}
+
+dynamics_physeq_mutations_maxChange_codes$type<-"Mutations"
+dynamics_asvs_physeq_maxChange_codes$type<-"ASVs"
+dynamics_metabolites_physeq_maxChange_codes$type<-"Metabolites"
+
+dynamics_physeq_all<-bind_rows(dynamics_physeq_mutations_maxChange_codes,dynamics_asvs_physeq_maxChange_codes,dynamics_metabolites_physeq_maxChange_codes)
+
+dynamics_physeq_all$type<-factor(dynamics_physeq_all$type,levels = c("Mutations","Metabolites","ASVs"))
+
+
+
+
+ggplot(dynamics_physeq_all,aes(x=as.factor(count_code),y=max_diff_freq,fill=mouse))+
+  geom_boxplot(alpha=0.5,outlier.shape = NA,position = position_dodge(preserve = "single"))+ggbeeswarm::geom_quasirandom(dodge.width = 0.8,shape=21,size=2)+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.2))+
+  scale_x_discrete(breaks=seq(0,4,1))+
+  scale_fill_manual(values = c("#FDE725FF", "#20A387FF"))+
+  theme_cowplot()+
+  background_grid(major="xy")+
+  theme(legend.position = "none")+
+  xlab("Number of fluctuations")+
+  ylab("Maximum frequency change")+
+  facet_wrap(~type)
+
+
+
+```
