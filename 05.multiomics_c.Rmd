@@ -318,7 +318,7 @@ pca_plots_leg
 
 ```
 
-Fig. S5A-C
+Fig. S5D-F
  
 ```{r,fig.width=10}
 
@@ -650,6 +650,172 @@ plot(m1)
 dev.off()
 ```
 
+## Procrustes and Mantel tests for correlation between datasets
+
+**Procrustes**  rotates a matrix to maximum similarity with a target matrix minimizing sum of squared differences. This works on the ordination (e.g. PCA), rather than on the distance matrices. The typical representation for procrustes is a PCA with points for the two datasets and lines connecting samples with the same id. From Procrustes, we obtain the m^2 statistic, smaller values indicate stronger correlation.  
+
+**Mantel** statistic is simply a correlation between entries of two dissimilarity matrices. From Mantel we obtain the *r* statistic, larger values indicate stronger correlation.  
+
+The figure below is saved as `procrustes_plots.pdf`.
+
+```{r}
+#########################################
+### mantel test
+dist.asv = vegdist(t(as.data.frame(otu_table(asvs_d84_physeq_obj))), method = "euclidean")
+dist.metab = vegdist(t(as.data.frame(otu_table(metab_d84_physeq_obj))), method = "euclidean")
+dist.mut = vegdist(t(as.data.frame(otu_table(d84_para_gene_physeq_obj))), method = "euclidean")
+
+set.seed(10)
+man_asv.mut<-mantel(xdis=dist.asv, ydis=dist.mut, method = "spearman", permutations = 999)
+set.seed(10)
+man_metab.mut<-mantel(xdis=dist.metab, ydis=dist.mut, method = "spearman", permutations = 999)
+set.seed(10)
+man_metab.asv<-mantel(xdis=dist.metab, ydis=dist.asv, method = "spearman", permutations = 999)
+
+man_asv.mut_r<-round(man_asv.mut$statistic,4)
+man_asv.mut_pval<-round(man_asv.mut$signif,4)
+
+man_metab.mut_r<-round(man_metab.mut$statistic,4)
+man_metab.mut_pval<-round(man_metab.mut$signif,4)
+
+man_metab.asv_r<-round(man_metab.asv$statistic,4)
+man_metab.asv_pval<-round(man_metab.asv$signif,4)
+
+
+```
+
+
+Fig. 4C-F
+
+```{r}
+#########################################
+#this analysis was done following this paper https://www.sciencedirect.com/science/article/pii/S1931312819302501 with code deposited at https://github.com/knights-lab/dietstudy_analyses/blob/7f56485371a05c01b81b048d00a670c575bbc0cd/lib/results_scripts/3_Food%20choices%20associate%20with%20microbiome%20composition/1_Figure2C_H/Figure2C_2H.R 
+
+#CONSIDER DOING THIS WITH THE MUTATIONS ALWAYS BEING THE x MATRIX IN PROCRUSTES
+#consider using the residuals function on the non symetric procrustes to get the distances and then doing the ration between pro_asv.mut and pro_metab.mut
+
+#also need to do adonis for each of the pcas and analyse the pcs of each of the datasets
+### procrustes: a lower m12 value (m^2) indicates a tighter association between the two datasets
+
+pc.asv<-rda(t(as.data.frame(otu_table(asvs_d84_physeq_obj))))
+pc.metab<-rda(t(as.data.frame(otu_table(metab_d84_physeq_obj))))
+pc.mut<-rda(t(as.data.frame(otu_table(d84_para_gene_physeq_obj))))
+
+set.seed(10)
+pro_metab.mut<-protest(X = pc.metab, Y =  pc.mut, scores = "sites", permutations = 999)
+set.seed(10)
+pro_asv.mut<-protest(X = pc.asv, Y = pc.mut, scores = "sites", permutations = 999)
+set.seed(10)
+pro_metab.asv<-protest(X = pc.metab, Y = pc.asv, scores = "sites", permutations = 999)
+  
+#########################################
+
+
+pro_metab.mut_X<-data.frame(pro_metab.mut$X)
+pro_metab.mut_X$sample <- rownames(pro_metab.mut_X)
+pro_metab.mut_X$data <- "metabolites"
+
+pro_metab.mut_Y <- data.frame(pro_metab.mut$Yrot)
+pro_metab.mut_Y$sample <- rownames(pro_metab.mut_Y)
+pro_metab.mut_Y$data <- "mutations"
+
+colnames(pro_metab.mut_Y) <- colnames(pro_metab.mut_X)
+pro_metab.mut_df <- rbind(pro_metab.mut_X, pro_metab.mut_Y)
+
+pro_metab.mut_pval <- round(pro_metab.mut$signif,4)
+pro_metab.mut_m2 <- round(pro_metab.mut$ss,4)
+  
+
+p1<-ggplot(pro_metab.mut_df,aes(x=PC1,y=PC2)) +
+    geom_line(aes(group=sample), col = "grey") +
+    geom_point(aes(fill = data),size = 2.5, shape=21) +
+    scale_fill_manual(values = c("#ffffbf", "#7fbf7b"),name="") +
+    theme_cowplot() +
+    annotate("text", x = 0, y = -0.38, label = paste0("Procrustes m2 = ",pro_metab.mut_m2, ", p = ",pro_metab.mut_pval), size = 3) +
+    annotate("text", x = 0, y = -0.41, label = paste0("Mantel r = ",man_metab.mut_r, ", p = ",man_metab.mut_pval), size = 3)+
+  theme(legend.position = "top",legend.justification = "center") +
+  xlim(-0.25,0.25)+ylim(-0.42,0.21)
+
+#########################################
+
+pro_asv.mut_X<-data.frame(pro_asv.mut$X)
+pro_asv.mut_X$sample <- rownames(pro_asv.mut_X)
+pro_asv.mut_X$data <- "16S variants"
+
+pro_asv.mut_Y <- data.frame(pro_asv.mut$Yrot)
+pro_asv.mut_Y$sample <- rownames(pro_asv.mut_Y)
+pro_asv.mut_Y$data <- "mutations"
+
+colnames(pro_asv.mut_Y) <- colnames(pro_asv.mut_X)
+pro_asv.mut_df <- rbind(pro_asv.mut_X, pro_asv.mut_Y)
+
+pro_asv.mut_pval <- round(pro_asv.mut$signif,4)
+pro_asv.mut_m2 <- round(pro_asv.mut$ss,4)
+  
+
+p2<-ggplot(pro_asv.mut_df,aes(x=PC1,y=PC2)) +
+    geom_line(aes(group=sample), col = "grey") +
+    geom_point(aes(fill = data),size = 2.5, shape=21) +
+    scale_fill_manual(values = c("#e9a3c9","#7fbf7b"),name="") +
+    theme_cowplot() +
+    annotate("text", x = 0, y = -0.38, label = paste0("Procrustes m2 = ",pro_asv.mut_m2, ", p = ",pro_asv.mut_pval), size = 3) +
+    annotate("text", x = 0, y = -0.41, label = paste0("Mantel r = ",man_asv.mut_r, ", p = ",man_asv.mut_pval), size = 3)+
+  theme(legend.position = "top",legend.justification = "center")  +
+  xlim(-0.25,0.25)+ylim(-0.42,0.21)
+
+#########################################
+
+pro_metab.asv_X<-data.frame(pro_metab.asv$X)
+pro_metab.asv_X$sample <- rownames(pro_metab.asv_X)
+pro_metab.asv_X$data <- "metabolites"
+
+pro_metab.asv_Y <- data.frame(pro_metab.asv$Yrot)
+pro_metab.asv_Y$sample <- rownames(pro_metab.asv_Y)
+pro_metab.asv_Y$data <- "16S variants"
+
+colnames(pro_metab.asv_Y) <- colnames(pro_metab.asv_X)
+pro_metab.asv_df <- rbind(pro_metab.asv_X, pro_metab.asv_Y)
+
+pro_metab.asv_pval <- round(pro_metab.asv$signif,4)
+pro_metab.asv_m2 <- round(pro_metab.asv$ss,4)
+  
+
+p3<-ggplot(pro_metab.asv_df,aes(x=PC1,y=PC2)) +
+    geom_line(aes(group=sample), col = "grey") +
+    geom_point(aes(fill = data),size = 2.5, shape=21) +
+    scale_fill_manual(values = c("#e9a3c9", "#ffffbf"),name="") +
+    theme_cowplot() +
+    annotate("text", x = 0, y = -0.38, label = paste0("Procrustes m2 = ",pro_metab.asv_m2, ", p = ",pro_metab.asv_pval), size = 3)+
+    annotate("text", x = 0, y = -0.41, label = paste0("Mantel r = ",man_metab.asv_r, ", p = ",man_metab.asv_pval), size = 3)+
+theme(legend.position = "top",legend.justification = "center")  +
+  xlim(-0.25,0.25)+ylim(-0.42,0.21)
+
+
+procrustes_leg<-get_legend(
+ggplot(bind_rows(pro_metab.asv_df,pro_metab.mut_df) %>%
+  mutate(data = fct_relevel(data, "mutations","metabolites","16S variants")) ,aes(x=PC1,y=PC2)) +
+    geom_point(aes(fill = data),size = 2.5, shape=21)+
+  scale_fill_manual(values = c("#7fbf7b", "#ffffbf","#e9a3c9"),name="")+
+  theme_cowplot()+theme(legend.position = "top",legend.justification = "center")
+)
+
+procrustes_plots <- plot_grid(
+  p1 + theme(legend.position="none"),
+  p2 + theme(legend.position="none"),
+  p3 + theme(legend.position="none"),
+  align = 'vh',
+  hjust = -1,
+  nrow = 1)
+
+procrustes_plots_leg<-plot_grid(procrustes_leg,procrustes_plots, rel_heights = c(.3, 3),ncol = 1)
+
+procrustes_plots_leg
+
+# ggsave(file="analysis/multiomics/procrustes_plots.pdf", width = 297, height = 210/2, units = "mm")
+
+```
+
+
 ## Integrative analysis with DIABLO
 
 
@@ -900,7 +1066,7 @@ pls_diablo_c23<-pls_diablo_c23 %>%
 
 ```
 
-The figures below corresponds to Fig. 5A and S5E
+The figures below corresponds to Fig. 5A-C and S6
 ```{r,fig.width=10}
 
 plot_c12<-ggplot(pls_diablo_c12,aes(x=comp1,y=comp2)) + 
@@ -1217,7 +1383,7 @@ halla_hm<-halla_hm[-1]
 
 ```
 
-Fig. S5D  
+Fig. S5H  
 (for the paper this figure was rotated)
 
 ```{r,fig.width=10,fig.height=10}
@@ -1545,7 +1711,7 @@ No. features: `r ntaxa(dynamics_freqGene_physeq_F5_min2)`
 
 ## PCA on Aitchinson distances for each dataset: mutations, microbiome and ASVs
 
-This was used for Fig 6F
+This was used for Fig 6E
 
 ```{r,fig.width=10,fig.height=8}
 dynamics_freqGene_physeq_F2_min2_clr<-transform_popSeq(dynamics_freqGene_physeq_F2_min2,transform="clr")
@@ -1977,7 +2143,7 @@ Fig. S7
 pc1_d+pc2_d+ai_d
 ```
 
-Fig. 6E
+Fig. 6F
 
 ```{r}
 ggplot(dynamics_euc_df,aes(x=type,y=value,fill=type))+
@@ -2167,7 +2333,7 @@ dynamics_metabolites_physeq_maxChange_codes$count_code<-str_count(dynamics_metab
 ```
 
 
-Fig. S6A
+Fig. S7A
 ```{r}
 
 dynamics_physeq_mutations_maxChange_codes$type<-"Mutations"
