@@ -214,7 +214,7 @@ ggplotly(p)
 ```
 
 
-Plots for the chromosome showed that any 1000bp region with more than 3 mutations is beyond the 99% CI, so beelow I filter for those gene regions that have 3 or more mutations
+Plots for the chromosome showed that any 1000bp region with more than 3 mutations is beyond the 99% CI, so below I filter for those gene regions that have 3 or more mutations
 
 #### summarize mutation counts per position range
 
@@ -620,7 +620,9 @@ d84_mutationCount_perType_spectra$mouse2<-str_sub(d84_mutationCount_perType_spec
 #reorder diet levels
 d84_mutationCount_perType_spectra$diet<-factor(d84_mutationCount_perType_spectra$diet,levels=c("SD","WD","AD"))
 
-  
+
+# writexl::write_xlsx(d84_mutationCount_perType_spectra,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/D84_mutationalSpectra.xlsx")
+
 #### create a new dataframe of counts for mutation region ####
 
 d84_mutationCount_perType_region<-
@@ -657,6 +659,12 @@ d84_mutationCount_perType_coding_snps$evolved_aa<-str_sub(d84_mutationCount_perT
 #new column for synonymous or non-synonymous
 d84_mutationCount_perType_coding_snps$snp_type<-ifelse(d84_mutationCount_perType_coding_snps$ancestral_aa==d84_mutationCount_perType_coding_snps$evolved_aa,
                                                        "synonymous","non-synonymous")
+
+
+
+## save mutational spectra coding snps
+
+# writexl::write_xlsx(d84_mutationCount_perType_coding_snps,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/D84_mutationalSpectra_codingSNPs.xlsx")
 
 #dataframe with count of snp_type per mouse
 
@@ -1093,7 +1101,7 @@ ggplot(d84_long_freqGene_parallel_presAbs,aes(x=mouse,y=locus_name,fill=as.facto
 ```
 
 
-```{r}
+```{r,eval=F}
 
 #load libraries
 library(brglm2)
@@ -1199,13 +1207,6 @@ df_dietDifferentialMutationalTargets_fdr_p0.05$sig_pairs<-paste0(df_dietDifferen
                                                             df_dietDifferentialMutationalTargets_fdr_p0.05$sig_WDAD)
 
 
-
-# create column indicating the group that is enriched in mutations for each gene
-
-df_dietDifferentialMutationalTargets_fdr_p0.05$group_enriched<-c("AD","AD","WD&AD","AD","WD","WD","AD","SD&AD",
-                                                                 "AD","AD","SD&AD","AD","WD","WD","SD")
-
-
 # create two new columns with gene names (for when mutations are in intergenic regions)
 df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% separate(gene, c("gene_1", "gene_2"),sep="/",remove=F)
 
@@ -1213,19 +1214,30 @@ df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTar
 
 df_dietDifferentialMutationalTargets_fdr_p0.05<-left_join(df_dietDifferentialMutationalTargets_fdr_p0.05,annotation,by=c("gene_1"="locus_tag_prokka"))
 
-df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% rename_at(15, ~paste0(., "_1"))
+df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% rename_at(14, ~paste0(., "_1"))
 
 #merge data frame of mutations with annotations (for gene 2)
 
 df_dietDifferentialMutationalTargets_fdr_p0.05<-left_join(df_dietDifferentialMutationalTargets_fdr_p0.05,annotation,by=c("gene_2"="locus_tag_prokka"))
 
-df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% rename_at(16, ~paste0(., "_2"))
+df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% rename_at(15, ~paste0(., "_2"))
 
 
 
 # merge locus that are intergenic mutations
 df_dietDifferentialMutationalTargets_fdr_p0.05$locus_name<-ifelse(is.na(df_dietDifferentialMutationalTargets_fdr_p0.05$locus_tag_db_2),df_dietDifferentialMutationalTargets_fdr_p0.05$locus_tag_db_1,
                                   paste0(df_dietDifferentialMutationalTargets_fdr_p0.05$locus_tag_db_1,"/",df_dietDifferentialMutationalTargets_fdr_p0.05$locus_tag_db_2))
+
+
+
+
+# create column indicating the group that is enriched in mutations for each gene
+
+df_dietDifferentialMutationalTargets_fdr_p0.05$group_enriched<-c("AD","WD&AD","AD","AD","WD",
+                                                                 "WD","SD&AD","AD","SD&AD","AD",
+                                                                 "AD","WD","AD","SD","WD")
+
+
 
 
 
@@ -1238,6 +1250,8 @@ df_dietDifferentialMutationalTargets_fdr_p0.05$locus_name<-ifelse(is.na(df_dietD
 
 
 ```{r}
+
+df_dietDifferentialMutationalTargets_fdr_p0.05<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutationalTargets_fdr_p0.05_c.xlsx")
 
 d84_long_parallel_freqGene<-read_excel("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
 
@@ -1384,7 +1398,8 @@ p1+p2
 
 
 ## test for differentially abundant mutations in the parallel genes
-here, we testesd whether some mutations (of each specific gene) were differentially pervalent.  
+Here, we testesd whether some mutations (of each specific gene) were differentially pervalent across dietary regimes.  
+
 This was tested for all parallel genes that were mutated in at least 1/3 of the mice (i.e. 14)
 ```{r}
 
@@ -1442,7 +1457,7 @@ d84_long_parallel_prev_count<-d84_long_parallel_prev %>% group_by(seq_id,positio
 
 
 
-ggplot(d84_long_parallel_prev_count,aes(x=annotation,y=count,fill=diet))+
+p<-ggplot(d84_long_parallel_prev_count,aes(x=annotation,y=count,fill=diet))+
   geom_bar(stat="identity",position = "dodge")+
   facet_wrap(~locus_name,scales = "free_x")+
   theme_cowplot()+
@@ -1453,9 +1468,12 @@ ggplot(d84_long_parallel_prev_count,aes(x=annotation,y=count,fill=diet))+
   ylab("# Mice with mutation")+
   xlab("Mutation")
 
+
+ggplotly(p)
+
 library(ggbeeswarm)
 
-ggplot(d84_long_parallel_prev[d84_long_parallel_prev$frequency>0,],aes(x=annotation,y=frequency,fill=diet))+
+p<-ggplot(d84_long_parallel_prev[d84_long_parallel_prev$frequency>0,],aes(x=annotation,y=frequency,fill=diet))+
   geom_quasirandom(shape=21)+
   facet_wrap(~locus_name,scales = "free")+
   theme_cowplot()+
@@ -1465,13 +1483,16 @@ ggplot(d84_long_parallel_prev[d84_long_parallel_prev$frequency>0,],aes(x=annotat
   ylab("Mutation frequency")+
   xlab("Mutation")
 
+ggplotly(p)
+
+
 ```
 
 The only gene that is significant is  **BT_0867**
 
 
-```{r}
 
+```{r,eval=F}
 #load libraries
 library(tidyverse)
 library(brglm2)
@@ -1483,10 +1504,10 @@ df_presAbs_gene<-setNames(data.frame(matrix(ncol = 6, nrow = 0)), c("gene", "df"
 for (i in unique(d84_long_parallel_prev$gene)) { 
 dat <- d84_long_parallel_prev %>% filter(gene %in% i) %>% droplevels()
 gene<-i
-if(berryFunctions::is.error(assign(paste0("mod","_",i),glm(presenceAbsence~diet*seqid_position_annotation_gene,data=dat, family=binomial(),method = "brglmFit")))){
+if(berryFunctions::is.error(assign(paste0("mod","_",i),glm(presenceAbsence~diet*seqid_position_mutation_gene,data=dat, family=binomial(),method = "brglmFit")))){
 vals<-data.frame(cbind(gene,df=NA,Deviance=NA,resid_df=NA,resid_dev=NA,P.val_dietMutation=NA))  
 } else{
-assign(paste0("mod","_",i),glm(presenceAbsence~diet*seqid_position_annotation_gene,data=dat, family=binomial(),method = "brglmFit"))
+assign(paste0("mod","_",i),glm(presenceAbsence~diet*seqid_position_mutation_gene,data=dat, family=binomial(),method = "brglmFit"))
 mod<-get(paste0("mod","_",i))
 moda<-anova(mod,test="LRT")
 
@@ -1511,15 +1532,20 @@ df_presAbs_gene<-rbind(df_presAbs_gene,vals)
 df_presAbs_gene<-df_presAbs_gene %>% mutate_at(c(2:6),as.character) %>% mutate_at(c(2:6),as.numeric)
 
 
+# writexl::write_xlsx(left_join(df_presAbs_gene,d84_long_parallel_prev[5:6] %>% distinct()),"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutations_c.xlsx")
+```
+
+
+```{r}
+df_presAbs_gene<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutations_c.xlsx")
 
 #interactive/downloadable table
-DT::datatable(data = left_join(df_presAbs_gene,d84_long_parallel_prev[5:6] %>% distinct()), 
+DT::datatable(data = df_presAbs_gene, 
               extensions = "Buttons", options = list(dom = "Blfrtip", buttons = c("csv","excel")))
-
 
 ```
 
-## Plots for Fig. 7A-B
+## Plots for Fig. 7A-C
 ```{r}
 ggplot(d84_long_parallel_prev[d84_long_parallel_prev$frequency>0 & d84_long_parallel_prev$locus_name=="BT_0867",],
        aes(x=factor(word(annotation,start = 1,end=1),level=c("R988C","N981S","T756I","T756A","P678S")),y=frequency,fill=diet))+
@@ -1585,6 +1611,461 @@ d84_long_parallel_freqGene_count_fluctGenes %>%
   scale_y_continuous(limits=c(0,14),breaks=seq(0,14,2))+
   ylab("# Mice with mutation")+
   xlab("Mutation")
+
+```
+
+
+
+## 25/09/2021
+### variant annotation with SnpEff
+Following: https://genomics.sschmeier.com/ngs-voi/index.html
+
+
+#### convert breseq gd files to VCF files
+```{bash}
+conda activate breseq0.34.1
+
+GDdir=analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/breseq_gdOutput_day84
+mkdir analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/breseq_vcfOutput_day84
+VCFdir=analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/breseq_vcfOutput_day84
+
+REF=analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/TDA1000_chromosome_plasmid_v3.gff3
+
+# for loop to convert gd files to vcf files
+
+for GD in $GDdir/*.gd; do
+    SAMP=$(basename "$GD" .gd)
+    gdtools GD2VCF -r $REF -o $VCFdir/$SAMP.vcf $GD
+done
+
+conda deactivate
+```
+
+
+```{bash}
+conda activate voi
+
+mkdir analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis
+
+cd analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis
+
+cp /home/rramiro/miniconda3/envs/voi/share/snpeff-5.0-1/snpEff.config .
+
+mkdir -p ./data/Btheta
+
+cd ../../../../..
+
+
+cp analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/TDA1000_chromosome_plasmid_v2.fasta  analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/data/Btheta/sequences.fa 
+
+cp analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/TDA1000_chromosome_plasmid_v3.gff3  analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/data/Btheta/genes.gff 
+
+gzip analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/data/Btheta/sequences.fa
+
+gzip analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/data/Btheta/genes.gff
+
+
+# build new SnpEff database
+cd analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis
+
+snpEff build -c snpEff.config -gff3 -v Btheta > snpEff.stdout 2> snpEff.stderr
+
+```
+
+```{bash}
+
+for VCF in ../breseq_vcfOutput_day84/*.vcf; do
+    SAMP=$(basename "$VCF" .vcf)
+    snpEff -c snpEff.config Btheta -v -lof ../breseq_vcfOutput_day84/$VCF > $SAMP.anno.vcf
+done
+
+
+```
+
+
+### load file with mutations
+```{r}
+library(tidyverse)
+
+d84_long_annot<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_woutLowConfMutations_withAnnotations_c.xlsx")
+
+
+d84_long_annot$region<-ifelse(str_detect(d84_long_annot$gene,"/"),"intergenic","coding")
+
+
+d84_long_annot_cod<-d84_long_annot %>% filter(region=="coding")
+
+d84_long_annot_cod_uniqueMuts<-d84_long_annot_cod %>% dplyr::select(seq_id,position,mutation,annotation,gene,locus_name,description,seqid_position_mutation_gene,region) %>% distinct()
+
+```
+
+
+## read snpEff vcf files
+```{r}
+
+data_path <- "analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/"   # path to the data
+files <- dir(data_path, pattern = "*anno.vcf") # get file names
+
+
+snpEff <- tibble(sample = files) %>% # create a data frame
+                                         # holding the file names
+  mutate(file_contents = map(sample,          # read files into
+           ~ read_tsv(file.path(data_path, .),comment = "##")) # a new data column
+        )
+snpEff<-unnest(snpEff,cols = c(file_contents))
+
+
+snpEff<-snpEff %>%
+  separate(.,INFO,into=c("AF","AD","DP","ANN","LOF","NMD"),sep=";")
+
+names(snpEff)[2] <- "seq_id"
+
+snpEff_unique<-snpEff %>% dplyr::select(seq_id,POS,ID,REF,ALT,ANN,LOF) %>% distinct()
+
+# count number of nucleotides
+snpEff_unique$REF_nt<-str_count(snpEff_unique$REF)
+snpEff_unique$ALT_nt<-str_count(snpEff_unique$ALT)
+
+
+snpEff_unique$POS_corr<-ifelse(snpEff_unique$REF_nt>snpEff_unique$ALT_nt,snpEff_unique$POS+1,snpEff_unique$POS)
+
+
+
+snpEff_unique$mutation<-ifelse(snpEff_unique$REF_nt>snpEff_unique$ALT_nt,paste0("Δ",snpEff_unique$REF_nt-snpEff_unique$ALT_nt," bp"),
+                           ifelse(snpEff_unique$REF_nt<snpEff_unique$ALT_nt,paste0("+",str_remove(snpEff_unique$ALT,snpEff_unique$REF)),paste0(snpEff_unique$REF,"→",snpEff_unique$ALT)))
+
+snpEff_unique$seq_id_pos_mut<-paste0(snpEff_unique$seq_id,"_",snpEff_unique$POS_corr,"_",snpEff_unique$mutation)
+snpEff_unique$seq_id_pos<-paste0(snpEff_unique$seq_id,"_",snpEff_unique$POS_corr)
+
+
+```
+
+The first gene in an ANN field is the one that was mutated, others are downstream genes. Positions generally match, but deletions generally start 1bp before in SnpEff than in breseq. Insertions start at the same position
+
+
+```{r}
+d84_long_annot_cod_uniqueMuts$seq_id_pos_mut<-paste0(d84_long_annot_cod_uniqueMuts$seq_id,"_",d84_long_annot_cod_uniqueMuts$position,"_",d84_long_annot_cod_uniqueMuts$mutation)
+d84_long_annot_cod_uniqueMuts$seq_id_pos<-paste0(d84_long_annot_cod_uniqueMuts$seq_id,"_",d84_long_annot_cod_uniqueMuts$position)
+
+
+d84_long_annot_cod_uniqueMuts_snpEff<-left_join(d84_long_annot_cod_uniqueMuts,snpEff_unique,keep=FALSE)
+d84_long_annot_cod_uniqueMuts_snpEff_NA<-d84_long_annot_cod_uniqueMuts_snpEff %>% filter(!complete.cases(ANN))
+d84_long_annot_cod_uniqueMuts_snpEff<-d84_long_annot_cod_uniqueMuts_snpEff %>% filter(complete.cases(ANN))
+d84_long_annot_cod_uniqueMuts_snpEff_NA<-left_join(d84_long_annot_cod_uniqueMuts_snpEff_NA[1:11],snpEff_unique[c(1:11,13)],keep=FALSE,by=c("seq_id","seq_id_pos"))
+
+names(d84_long_annot_cod_uniqueMuts_snpEff_NA)[names(d84_long_annot_cod_uniqueMuts_snpEff_NA) == "mutation.x"] <- "mutation"
+d84_long_annot_cod_uniqueMuts_snpEff_NA<-d84_long_annot_cod_uniqueMuts_snpEff_NA[1:20]
+
+
+d84_long_annot_cod_uniqueMuts_snpEff<-bind_rows(d84_long_annot_cod_uniqueMuts_snpEff,d84_long_annot_cod_uniqueMuts_snpEff_NA)
+
+d84_long_annot_cod_uniqueMuts_snpEff_NA<-d84_long_annot_cod_uniqueMuts_snpEff %>% filter(!complete.cases(ANN))
+d84_long_annot_cod_uniqueMuts_snpEff<-d84_long_annot_cod_uniqueMuts_snpEff %>% filter(complete.cases(ANN))
+
+d84_long_annot_cod_uniqueMuts_snpEff_NA$position<-d84_long_annot_cod_uniqueMuts_snpEff_NA$position-1
+d84_long_annot_cod_uniqueMuts_snpEff_NA$seq_id_pos<-paste0(d84_long_annot_cod_uniqueMuts_snpEff_NA$seq_id,"_",d84_long_annot_cod_uniqueMuts_snpEff_NA$position)
+d84_long_annot_cod_uniqueMuts_snpEff_NA<-left_join(d84_long_annot_cod_uniqueMuts_snpEff_NA[1:11],snpEff_unique[c(1:11,13)],keep=FALSE,by=c("seq_id","seq_id_pos"))
+names(d84_long_annot_cod_uniqueMuts_snpEff_NA)[names(d84_long_annot_cod_uniqueMuts_snpEff_NA) == "mutation.x"] <- "mutation"
+d84_long_annot_cod_uniqueMuts_snpEff_NA<-d84_long_annot_cod_uniqueMuts_snpEff_NA[1:20]
+
+d84_long_annot_cod_uniqueMuts_snpEff<-bind_rows(d84_long_annot_cod_uniqueMuts_snpEff,d84_long_annot_cod_uniqueMuts_snpEff_NA)
+
+
+
+d84_long_annot_cod_uniqueMuts_snpEff<-d84_long_annot_cod_uniqueMuts_snpEff[c(1:15,17:20,16)]
+
+d84_long_annot_cod_uniqueMuts_snpEff$ANN<-str_remove(d84_long_annot_cod_uniqueMuts_snpEff$ANN,"ANN=")
+
+d84_long_annot_cod_uniqueMuts_snpEff<-d84_long_annot_cod_uniqueMuts_snpEff %>% separate(.,ANN,into=letters[seq( from = 1, to = 30 )],sep=",")
+
+d84_long_annot_cod_uniqueMuts_snpEff$geneMatch<-str_detect(string = d84_long_annot_cod_uniqueMuts_snpEff$a, pattern = d84_long_annot_cod_uniqueMuts_snpEff$gene)
+
+
+```
+
+
+In general, all genes are matching with the first annotation (ANN) field from SNPeff. There are only 8 /1421 that do not match, these are either noncoding regions or overlapping genes, which I exclude 
+```{r}
+d84_long_annot_cod_uniqueMuts_snpEff %>% filter(geneMatch==FALSE) %>% dplyr::select(1:6)
+
+```
+
+generate table for merging with original mutation table
+
+```{r}
+d84_long_annot_cod_uniqueMuts_snpEff_short<-d84_long_annot_cod_uniqueMuts_snpEff %>% filter(geneMatch==TRUE) %>%
+  dplyr::select(seq_id:seqid_position_mutation_gene,LOF,a)
+
+
+# separate the annotation field
+d84_long_annot_cod_uniqueMuts_snpEff_short<-d84_long_annot_cod_uniqueMuts_snpEff_short %>%
+  separate(a,sep="\\|",into = c("ALT_allele","effect","putative_impact","gene_name","geneid","feature_type","featureid",
+                              "transcript_biotype","rank","HGVS.c","HGVS.p","cDNA","CDS","dist_feature","errors"))
+
+# simplify loss of function calling - if it is detected just state yes or no
+d84_long_annot_cod_uniqueMuts_snpEff_short$loss_function<-ifelse(is.na(d84_long_annot_cod_uniqueMuts_snpEff_short$LOF),"no","yes")
+
+# save file with unique mutations as annotated by snpEff
+# writexl::write_xlsx(d84_long_annot_cod_uniqueMuts_snpEff_short,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/D84_uniqueMutations_snpEffAnnotated.xlsx")
+
+```
+
+Explanation of the outputs can be seen at: 
+http://pcingola.github.io/SnpEff/se_inputoutput/
+
+merge unique mutations annotated with snpEff with mutation table
+
+```{r}
+d84_long_annot_snpEff<-left_join(d84_long_annot,d84_long_annot_cod_uniqueMuts_snpEff_short[8:25],by="seqid_position_mutation_gene",keep=F) %>% filter(region=="coding") %>% distinct() 
+
+
+d84_long_annot_snpEff<-d84_long_annot_snpEff %>% filter(complete.cases(ALT_allele))
+
+# save above dataframe
+#writexl::write_xlsx(d84_long_annot_snpEff,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/D84_mutations_snpEffAnnotated.xlsx")
+```
+
+
+```{r}
+#### create a new dataframe of counts for mutation spectra ####
+
+d84_mutationCount_perType_spectra<-
+  d84_long_annot_snpEff %>%
+  group_by(diet,mouse,effect) %>%
+  summarize(count=n()) %>% 
+  group_by(diet,mouse) %>%
+  dplyr::filter(complete.cases(effect)) %>% 
+  mutate(total=sum(count))
+
+
+#calculate mutation frequency
+d84_mutationCount_perType_spectra$frequency<-d84_mutationCount_perType_spectra$count/d84_mutationCount_perType_spectra$total
+
+# remove letters from mouse names, so you can order bars by mouse number more easily
+d84_mutationCount_perType_spectra$mouse2<-str_sub(d84_mutationCount_perType_spectra$mouse,start = 2,end = 3) %>% 
+  as.numeric() %>% as.factor()
+
+#reorder diet levels
+d84_mutationCount_perType_spectra$diet<-factor(d84_mutationCount_perType_spectra$diet,levels=c("SD","WD","AD"))
+
+# the effect column sometimes has frameshift_variant&stopt_gained or stop_lost, but these are very rare and make the color legend go from 8 to 11 types, so I just ignored those
+d84_mutationCount_perType_spectra$effect2<-ifelse(str_detect(d84_mutationCount_perType_spectra$effect,"frameshift_variant"),"frameshift_variant",
+                           ifelse(str_detect(d84_mutationCount_perType_spectra$effect,"disruptive_inframe_insertion"),"disruptive_inframe_insertion",
+                                  d84_mutationCount_perType_spectra$effect))
+
+#reorder effect levels
+d84_mutationCount_perType_spectra$effect2<-factor(d84_mutationCount_perType_spectra$effect2,levels=c("stop_gained","frameshift_variant","start_lost",
+                                                                                                     "gene_fusion",
+                                                                                                     "disruptive_inframe_insertion",
+                                                                                                     "disruptive_inframe_deletion",
+                                                                                                     "conservative_inframe_deletion",
+                                                                                                     "conservative_inframe_insertion",
+                                                                                                     "missense_variant","synonymous_variant"))
+
+# save above dataframe
+#writexl::write_xlsx(d84_mutationCount_perType_spectra,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/D84_mutationCounts_perMouse_snpEffAnnotated.xlsx")
+
+
+
+```
+
+
+### create dataframe with summed stop codons, frameshifts, loss of start codon or gene fusions
+```{r}
+d84_mutationCount_perType_spectra$nonsense<-ifelse(d84_mutationCount_perType_spectra$effect2 %in% c("stop_gained", "frameshift_variant", "start_lost", "gene_fusion"),"nonsense","other")
+
+
+d84_mutationCount_nonsense<-d84_mutationCount_perType_spectra %>% group_by(diet,mouse2,nonsense) %>% summarise(frequency=sum(frequency))
+
+#writexl::write_xlsx(d84_mutationCount_nonsense,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/D84_mutationCounts_perMouse_snpEff_nonsense_Annotated.xlsx")
+
+```
+
+
+generate plots
+```{r}
+
+
+ggplot()+
+  geom_bar(data=d84_mutationCount_perType_spectra,aes(x=mouse2,y=frequency,fill=effect2),position = "stack", stat="identity")+
+  geom_point(data=d84_mutationCount_nonsense[d84_mutationCount_nonsense$nonsense=="nonsense",],aes(x=mouse2,y=frequency),shape=21,fill="#d9d9d9",size=3)+
+  facet_wrap(~diet,scales="free_x")+
+  scale_fill_viridis_d()+
+  cowplot::theme_cowplot()+
+  theme(axis.text.x = element_text(angle=90,vjust=0.5))+
+  ylab("Mutation frequency")+
+  xlab("Mouse")
+
+
+```
+
+#results per gene
+```{r}
+
+df_dietDifferentialMutationalTargets_fdr_p0.05<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutationalTargets_fdr_p0.05_c.xlsx")
+
+df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% filter(!complete.cases(locus_tag_db_2))
+
+#### create a new dataframe of counts for mutation spectra ####
+
+d84_mutationCount_perType_spectra<-
+  d84_long_annot_snpEff[c(1:6,13,14,20)] %>% distinct() %>%
+  group_by(diet,gene,locus_name,effect) %>%
+  summarize(count=n()) %>% 
+  group_by(diet,gene,locus_name) %>%
+  dplyr::filter(complete.cases(effect)) %>% 
+  mutate(total=sum(count))
+
+
+#calculate mutation frequency
+d84_mutationCount_perType_spectra$frequency<-d84_mutationCount_perType_spectra$count/d84_mutationCount_perType_spectra$total
+
+
+
+#reorder diet levels
+d84_mutationCount_perType_spectra$diet<-factor(d84_mutationCount_perType_spectra$diet,levels=c("SD","WD","AD"))
+
+# the effect column sometimes has frameshift_variant&stopt_gained or stop_lost, but these are very rare and make the color legend go from 8 to 11 types, so I just ignored those
+d84_mutationCount_perType_spectra$effect2<-ifelse(str_detect(d84_mutationCount_perType_spectra$effect,"frameshift_variant"),"frameshift_variant",
+                           ifelse(str_detect(d84_mutationCount_perType_spectra$effect,"disruptive_inframe_insertion"),"disruptive_inframe_insertion",
+                                  d84_mutationCount_perType_spectra$effect))
+
+#reorder effect levels
+d84_mutationCount_perType_spectra$effect2<-factor(d84_mutationCount_perType_spectra$effect2,levels=c("stop_gained","frameshift_variant","start_lost",
+                                                                                                     "gene_fusion",
+                                                                                                     "disruptive_inframe_insertion",
+                                                                                                     "disruptive_inframe_deletion",
+                                                                                                     "conservative_inframe_deletion",
+                                                                                                     "conservative_inframe_insertion",
+                                                                                                     "missense_variant","synonymous_variant"))
+
+# save above dataframe
+#writexl::write_xlsx(d84_mutationCount_perType_spectra,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/D84_mutationCounts_perGene_snpEffAnnotated.xlsx")
+
+# filter to keep parallel mutations and mutations highlighted for temporal dynamics
+d84_mutationCount_perType_spectra_para<-d84_mutationCount_perType_spectra %>% filter(gene %in% c(df_dietDifferentialMutationalTargets_fdr_p0.05$gene,"TDA1000_03351","TDA1000_00266"))
+
+
+# save above dataframe
+#writexl::write_xlsx(d84_mutationCount_perType_spectra_para,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/D84_mutationCounts_perGene_snpEffAnnotated_paralleDifferentiallyAbund.xlsx")
+
+
+```
+
+
+# create data with summed stop codons, frameshifts, loss of start codon or gene fusions
+```{r}
+d84_mutationCount_perType_spectra_para$nonsense<-ifelse(d84_mutationCount_perType_spectra_para$effect2 %in% c("stop_gained", "frameshift_variant", "start_lost", "gene_fusion"),"nonsense","other")
+
+
+d84_mutationCount_nonsense_para<-d84_mutationCount_perType_spectra_para %>% group_by(diet,locus_name,nonsense) %>% summarise(frequency=sum(frequency))
+
+d84_mutationCount_nonsense_para<-d84_mutationCount_nonsense_para %>% pivot_wider(names_from=nonsense,values_from = frequency) 
+d84_mutationCount_nonsense_para$nonsense<-ifelse(is.na(d84_mutationCount_nonsense_para$nonsense),1-d84_mutationCount_nonsense_para$other,d84_mutationCount_nonsense_para$nonsense)
+d84_mutationCount_nonsense_para$other<-ifelse(is.na(d84_mutationCount_nonsense_para$other),1-d84_mutationCount_nonsense_para$nonsense,d84_mutationCount_nonsense_para$other)
+
+
+d84_mutationCount_nonsense_para<- d84_mutationCount_nonsense_para %>% pivot_longer(cols = nonsense:other,names_to="nonsense")
+
+d84_mutationCount_nonsense_para<-left_join(d84_mutationCount_nonsense_para,d84_mutationCount_perType_spectra_para %>% dplyr::select(diet,locus_name,total) %>% distinct())
+
+d84_mutationCount_nonsense_para<-d84_mutationCount_nonsense_para %>% dplyr::rename(frequency=value)
+
+
+#writexl::write_xlsx(d84_mutationCount_nonsense_para,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/SnpEff_analysis/D84_mutationCounts_perMouse_snpEff_nonsense_perGene_Annotated_paralleDifferentiallyAbund.xlsx")
+
+```
+
+```{r}
+ggplot()+
+  geom_bar(data=d84_mutationCount_perType_spectra_para,aes(x=diet,y=frequency,fill=effect2),position = "stack", stat="identity")+
+  geom_point(data=d84_mutationCount_nonsense_para[d84_mutationCount_nonsense_para$nonsense=="nonsense",],aes(x=diet,y=frequency),shape=21,fill="#d9d9d9",size=3)+
+  geom_text(data=d84_mutationCount_nonsense_para[d84_mutationCount_nonsense_para$nonsense=="nonsense",],aes(label=total,x=diet,y=1.1))+
+  facet_wrap(~locus_name,scales="free_x",ncol = 4)+
+  ylim(0,1.2)+
+  scale_fill_viridis_d()+
+  cowplot::theme_cowplot()+
+  theme(axis.text.x = element_text(angle=90,vjust=0.5))+
+  ylab("Mutation frequency")+
+  xlab("Diet")
+
+
+
+```
+
+
+## dN/dS
+
+
+bedtools GetFastaBed from galaxy worked and I could get the sequences
+```{r}
+cds<-read_tsv("analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/TDA1000_chromosome_plasmid_v3_cds.tabular",col_names = c("feature","seq"))
+
+gff<-rtracklayer::readGFF("analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/TDA1000_chromosome_plasmid_v3.gff3")
+gff<-as.data.frame(gff)
+
+gff<-gff %>% filter(Name %in% c(df_dietDifferentialMutationalTargets_fdr_p0.05$gene,"TDA1000_03351","TDA1000_00266"))
+
+cds<-cds %>% separate(feature,into=c("feat","region","start_position"))
+
+cds$start_position<-as.numeric(cds$start_position)+1
+
+cds<-cds %>% filter(start_position %in% gff$start)
+
+
+cds_gff<-left_join(gff %>% dplyr::select(seqid,start,Name),cds,by=c("seqid"="region","start"="start_position"))
+
+# create empty data frame for the data
+df_codons<-setNames(data.frame(matrix(ncol = 2, nrow = 0)), c("Name", "codon"))
+
+for (i in unique(cds_gff$Name)){
+  codon<-cds_gff %>% filter(Name %in% i) %>% pull(seq)
+  codon<-substring(codon, seq(1, nchar(codon)-1, 3), seq(3, nchar(codon), 3))
+  Name<-noquote(rep(i,length(codon)))
+  vals<-data.frame(cbind(Name,codon))
+  df_codons<-rbind(df_codons,vals)
+}
+
+
+## standard genetic code,obtained from MEGA
+sgc<-readxl::read_xlsx("analysis/genomics/StandardGeneticCode_CodonSites_NeiGojobori1986_MEGA.xlsx")
+
+
+df_codons<-left_join(df_codons,sgc,by=c("codon"="codon_dna"))
+
+df_codons_sum<-df_codons %>% group_by(Name) %>% summarize(syn_sites_tot=sum(syn_sites),nonsyn_sites_tot=sum(nonsyn_sites))
+
+
+
+```
+
+
+```{r}
+d84_mutationCount_perType_coding_snps<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/D84_mutationalSpectra_codingSNPs.xlsx")
+
+df_dietDifferentialMutationalTargets_fdr_p0.05<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutationalTargets_fdr_p0.05_c.xlsx")
+
+
+
+# filter for diff abundant genes
+d84_mutationCount_perType_coding_snps_parallel<-d84_mutationCount_perType_coding_snps %>% filter(gene %in% c(df_dietDifferentialMutationalTargets_fdr_p0.05$gene,"TDA1000_03351","TDA1000_00266"))
+
+d84_mutationCount_perType_coding_snps_parallel<-d84_mutationCount_perType_coding_snps_parallel %>% dplyr::select(gene,mutation,annotation,mutation2,snp_type) %>% distinct() %>%
+  group_by(gene,snp_type) %>% summarize(count=n()) %>% pivot_wider(names_from = snp_type,values_from = count)
+
+
+
+
+d84_mutationCount_perType_coding_snps_parallel<-left_join(d84_mutationCount_perType_coding_snps_parallel,df_codons_sum,by=c("gene"="Name"))
+
+
+annotation<-readxl::read_excel("analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/annotation_table_short.xlsx")
+
+d84_mutationCount_perType_coding_snps_parallel<-left_join(d84_mutationCount_perType_coding_snps_parallel,annotation,
+                                                          by=c("gene"="locus_tag_prokka"))
+
+# save above dataframe
+#writexl::write_xlsx(d84_mutationCount_perType_coding_snps_parallel,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/pNpS_parallelMutations.xlsx")
 
 ```
 
