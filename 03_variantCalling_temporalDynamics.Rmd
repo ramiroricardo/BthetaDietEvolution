@@ -1,0 +1,1116 @@
+---
+title: "03_breseq_temporalDynamics"
+author: "Ricardo Ramiro"
+date: "29/7/2020"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+## unless noted all analysis was run on the Buenos Aires desktop
+
+knitr::opts_chunk$set(echo=TRUE, 
+                      message=FALSE, 
+                      error = TRUE,
+                      warning=FALSE, 
+                      paged.print=FALSE, 
+                      fig.align = "center")
+
+knitr::opts_hooks$set(eval = function(options) {
+  if (options$engine == "bash") {
+    options$eval <- FALSE
+  }
+  options
+})
+
+```
+
+### Run breseq v0.34.1 to call mutations in B. theta populations  
+
+this was done on the bioinformatics VM in the biodata.pt server
+
+```{bash}
+
+# activate conda environment where breseq is installed
+conda activate breseq0.34.1
+
+# go to directory where breseq script is and output will be
+cd analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref
+
+# change permissions on script to run it
+chmod u+x breseq_script_dynamics_final_prokka_withMQpara_v3ref.sh
+
+# run script (this is set up to run multiple samples in parallel)
+nohup bash breseq_script_dynamics_final_prokka_withMQpara_v3ref.sh &
+
+```
+
+# get output.gd files into a single folder
+```{bash, eval=FALSE, echo=FALSE}
+
+# go to dir
+cd analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref
+
+# make new dir to put all gd files
+mkdir breseq_gdOutput_temporalDynamics
+
+# copy and rename gd files
+
+for DIR in D*; do
+    cd "$DIR"/output
+    cp output.gd ../../breseq_gdOutput_temporalDynamics/$DIR.gd
+    cd ../..
+done
+
+cd ..
+
+#copy data from day 84
+
+cp D84_prokkaREF_MQ20_BQ30_v3ref/breseq_gdOutput_day84/D84_F2.gd temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/breseq_gdOutput_temporalDynamics/
+
+cp D84_prokkaREF_MQ20_BQ30_v3ref/breseq_gdOutput_day84/D84_F5.gd temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/breseq_gdOutput_temporalDynamics/
+
+```
+
+# use gdtools compare to get mutation tables
+```{bash}
+
+
+
+# activate conda environment with breseq
+source activate breseq0.34.1
+
+# reference sequence
+REF=/mnt/8tb/Documents/Projects/20200101_TDapa_KXavier_BthetaEvolution/data/genomics/referenceGenomes/denovo_reference_20200506/TDA1000_chromosome_plasmid_v3.gff3
+
+# move to folder with gd files
+cd temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/breseq_gdOutput_temporalDynamics
+
+# generate html file comparing all runs of the ancestral
+gdtools COMPARE -r $REF --repeat-header 0 -o ../downstreamAnalysis/breseq_output_temporalDynamics.html `ls *.gd`
+
+```
+
+The above html files were then copied in to google sheets of the same name. Two tabs were created:  
+- raw: just copy paste  
+- edited. In this sheet I did the following:  
+  - google sheets considers anything that starts as a plus sign as a formula and gives an error. This is important in column C (mutation). To change this behaviour I replaced, using REGEX, 
+  "=\+" by "'+". The apostrophe allows the plus sign to be the first character
+  - when the same gene is mutated with both SNPs and deletions, breseq will add Δ in the frequency field for samples that got deletions. I replaced all these Δ by nothing  
+  - replaced "\?" by noting
+  - I changed the format of the frequencies of the mutations. These are expressed as %, I changed to decimal
+  - some positions are written as ######:# (e.g. 314,132:1 or 314,132:2). These lead to problems when making position column as numeric. Thus, I replaced "\:[0-9]" by nothing
+  - change the name of the column "seq id" to "seq_id"  
+  - in the gene column, I replaced all spaces, ← and → by nothing   
+  
+# general data manipulation
+[**Open temporal dynamics mutation list in long format**](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat.xlsx) 
+```{r}
+
+#load libraries
+library(tidyverse)
+library(readxl)
+library(cowplot)
+library(plotly)
+
+# load data
+dynamics<-read_xlsx("analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics.xlsx",sheet=2)
+
+# change order of columns, such that metadata is all on the left of the data frame
+dynamics<-dynamics[c(1:3,28:30,4:27)]
+
+# transform data to long format
+dynamics_long<-gather(dynamics,key=sample,value=frequency,D0_F2:D84_F5)
+
+# separate the sample column to its component day and mouse codes
+dynamics_long<-dynamics_long %>% separate(sample, c("day", "mouse"),sep="_",remove=F)
+
+# remove D from day
+dynamics_long$day<-str_remove(dynamics_long$day,"D")
+
+# remove NAs by zeroes. Contrary to the day 84 data, this needs to be done here we want to track mutation dynamics
+dynamics_long$frequency[is.na(dynamics_long$frequency)] <- 0
+
+#transform position to numeric
+dynamics_long$position<-as.numeric(dynamics_long$position)
+
+# get the first letter from each mouse code, as this indicates the diet
+dynamics_long$trt<-str_sub(dynamics_long$mouse,1,1)
+
+# create a data frame matching the 1-letter codes to the codes used in the paper
+trt_diet<-data.frame(trt=c("C","M","F"),diet=c("WD","SD","AD"))
+
+# match the 1-letter diet codes to those to use in the paper
+dynamics_long<-left_join(dynamics_long,trt_diet)
+
+# create a new column for  easy identification of mutations
+dynamics_long$seqid_position_mutation_gene<-paste0(dynamics_long$seq_id,"_",dynamics_long$position,"_",dynamics_long$mutation,"_",dynamics_long$gene)
+
+#create a new column specifying the diet per week
+dynamics_long$diet_week<-ifelse(dynamics_long$day %in% c(0,13,27,41,55,69,84),"SD","WD")
+
+# write the long format dataframe to a new file
+# writexl::write_xlsx(dynamics_long,"analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat.xlsx")
+
+```
+
+
+##  remove low confidence mutations from mutation list and add info about which mutations are parallel (as created in 02_variantCalling_day84.Rmd)
+[**Open temporal dynamics high-confidence mutation list**](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDYnamics_longFormat_woutLowConfMutations.xlsx)
+
+```{r}
+
+#load data
+dynamics_long<-read_xlsx("analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat.xlsx")
+
+# load low confidence mutations (including ancestral when using mapping quality thresholds)
+low_confidence_mutations_unique_high<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/low_confidence_mutations_unique.xlsx")
+
+
+#create a column code for filtering
+low_confidence_mutations_unique_high$seqid_position_mutation_gene<-paste(low_confidence_mutations_unique_high$seq_id,
+                                                                         low_confidence_mutations_unique_high$position,
+                                                                         low_confidence_mutations_unique_high$mutation,
+                                                                         low_confidence_mutations_unique_high$gene,
+                                                                         sep = "_")
+
+#create vector with low quality mutation codes
+low_confidence_mutations_unique_high<-low_confidence_mutations_unique_high$seqid_position_mutation_gene
+
+
+# remove all mutations that match above code
+dynamics_long<-dynamics_long %>% subset(!seqid_position_mutation_gene %in% low_confidence_mutations_unique_high)
+
+
+##### add column describing d84 parallel genes #####
+
+#load parallel mutation data
+d84_long_parallel<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations.xlsx")
+
+
+# add column for parallel genes 
+parallel_genes<-unique(d84_long_parallel$gene)
+
+dynamics_long$parallel<-ifelse(dynamics_long$gene %in% parallel_genes, "yes","no")
+
+
+# write the long format dataframe to a new file
+# writexl::write_xlsx(dynamics_long,"analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDYnamics_longFormat_woutLowConfMutations.xlsx")
+
+```
+
+
+## add annotations to table (e.g. BT gene names, functions, etc)
+The locus_name column has the information of the gene or intergenic region names. Where there was a high quality or very high quality match to a BT:##### gene name, this was included. Genes that passed this threshold, but were attributed a BXY_##### gene, kept a TDA_##### gene name.  
+
+[**Open temporal dynamics high-confidence mutation list with annotation**](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat_woutLowConfMutations_withAnnotations.xlsx)
+
+
+```{r}
+# load annotation data
+annotation<-readxl::read_excel("analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/assemblies_polished/annotation/prokka/rbh_eggnog_OUT_general_orig_prokka/annotation_table_withOperons.xlsx")
+
+#create new dataframe with annotations
+dynamics_long_annot<-dynamics_long
+
+# there were a few mutations that correspond to a deletion, the labels for these needed to be edited
+dynamics_long_annot$gene<-str_replace_all(dynamics_long_annot$gene,"\\[", "")
+dynamics_long_annot$gene<-str_replace_all(dynamics_long_annot$gene,"\\]", "")
+dynamics_long_annot$gene<-str_replace_all(dynamics_long_annot$gene,"–", "/")
+
+# create two new columns with gene names (for when mutations are in intergenic regions)
+dynamics_long_annot<-dynamics_long_annot %>% separate(gene, c("gene_1", "gene_2"),sep="/",remove=F)
+
+#merge data frame of parallel mutations with annotations (for gene 1)
+
+dynamics_long_annot<-left_join(dynamics_long_annot,annotation,by=c("gene_1"="locus_tag_prokka"))
+
+dynamics_long_annot<-dynamics_long_annot %>% rename_at(18:43, ~paste0(., "_1"))
+
+#merge data frame of parallel mutations with annotations (for gene 2)
+
+dynamics_long_annot<-left_join(dynamics_long_annot,annotation,by=c("gene_2"="locus_tag_prokka"))
+
+dynamics_long_annot<-dynamics_long_annot %>% rename_at(44:69, ~paste0(., "_2"))
+
+
+# add BT gene names to table. 1. do this just for genes whose annotation is high or very high quality; 2. gene named as BXY_xxx get attributed the TDA1000_xxx gene name; 3. merge locus that are intergenic mutations; 
+
+# keep only BT gene names whose annotation is high or very high quality
+dynamics_long_annot$gene_1_name<-ifelse(dynamics_long_annot$manual_locus_tag_db_confidence_1 %in% c("high_quality","very_high_quality"),dynamics_long_annot$locus_tag_db_1,dynamics_long_annot$gene_1)
+
+dynamics_long_annot$gene_2_name<-ifelse(dynamics_long_annot$manual_locus_tag_db_confidence_2 %in% c("high_quality","very_high_quality"),dynamics_long_annot$locus_tag_db_2,dynamics_long_annot$gene_2)
+
+# gene named as BXY_xxx get attributed the TDA1000_xxx gene name
+
+dynamics_long_annot$gene_1_name<-ifelse(str_detect(dynamics_long_annot$gene_1_name,"BXY_"),dynamics_long_annot$gene_1,dynamics_long_annot$gene_1_name)
+
+dynamics_long_annot$gene_2_name<-ifelse(str_detect(dynamics_long_annot$gene_2_name,"BXY_"),dynamics_long_annot$gene_2,dynamics_long_annot$gene_2_name)
+
+# merge locus that are intergenic mutations
+dynamics_long_annot$locus_name<-ifelse(is.na(dynamics_long_annot$locus_tag_db_2),dynamics_long_annot$gene_1_name,
+                                  paste0(dynamics_long_annot$gene_1_name,"/",dynamics_long_annot$gene_2_name))
+
+
+
+#change order of columns so that the BT locus_names are close to the gene names
+dynamics_long_annot<-dynamics_long_annot[c(1:5,72,6:71)]
+
+#transform day as numeric
+dynamics_long_annot$day<-as.numeric(dynamics_long_annot$day)
+
+# write the long format dataframe to a new file
+# writexl::write_xlsx(dynamics_long_annot,"analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat_woutLowConfMutations_withAnnotations.xlsx")
+
+```
+
+
+## Count the total number of mutations per mouse
+
+Plot [PDF](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/mutationCount_total_temporalDynamics.pdf)
+
+
+```{r}
+
+# create data
+dynamics_long_mutationCount<-dynamics_long %>% subset(frequency>0) %>% group_by(diet,diet_week,mouse,day) %>% summarize(mutation_tot=n())
+
+# convert day to numeric
+dynamics_long_mutationCount$day<-as.numeric(dynamics_long_mutationCount$day)
+
+#create a dataframe for the shading
+shading_df <- data.frame(ymin = -Inf, 
+                    ymax = Inf,
+                    xmin = seq(0,11,1),  
+                    xmax = c(seq(1,12,1)),
+                    diet = rep(c("WD", "SD"),6))
+
+#create plot
+p<-ggplot(dynamics_long_mutationCount,aes(x=day/7,y=mutation_tot))+
+  geom_rect(inherit.aes = FALSE,data = shading_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = diet), alpha = 0.1)+
+  geom_line(aes(color=mouse,group=mouse),size=1.5)+
+  geom_point(aes(fill=mouse),shape=21,size=3)+
+  xlab("Week")+ylab("Mutation count")+
+  scale_color_manual(values=c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  scale_fill_manual(values=c("#FDE725FF", "#20A387FF",NA,"#d73027"),labels=c("AD1","AD4"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  scale_x_continuous(breaks = seq(0,12,1))+
+  scale_y_continuous(limits=c(0,130),breaks = seq(0,120,20))
+
+p
+
+
+
+#interactive/downloadable table
+DT::datatable(data = dynamics_long_mutationCount %>% arrange(day), extensions = "Buttons", 
+          options = list(dom = "Blfrtip", buttons = c("csv","excel")))
+
+```
+
+## Day 0 analysis  
+
+#### Plot mutation frequency at day 0
+There are many mutations at day 0, but most of these mutations are below 3%.
+
+```{r}
+library(ggbeeswarm)
+
+#get the mutations from day0
+day0mutations<-dynamics_long %>% subset(frequency>0 & day==0) 
+
+#plot mutations
+ggplot(day0mutations,aes(x=mouse,y=frequency,fill=mouse))+
+  geom_boxplot(outlier.shape = NA)+
+  geom_quasirandom(shape=21,size=3)+
+  scale_y_log10()+
+  scale_fill_manual(values=c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+```
+
+
+What is the total number of mutations at day 0?
+
+```{r}
+day0mutations %>% group_by(mouse) %>% summarize(count=n())
+```
+
+
+How many of these day 0 mutations are present at later timepoints?
+```{r}
+
+#get dataframe with mutations that are present on day 0
+dynamics_long_day0mutations<-dynamics_long %>% subset(seqid_position_mutation_gene %in% day0mutations$seqid_position_mutation_gene)
+
+#remove day0 from dataframe
+dynamics_long_day0mutations_woutday0<-dynamics_long_day0mutations %>% subset(!day==0)
+
+#remove mutations with frequency=0, select meaningful columns and get the number of unique mutations per mouse that were present at day 0 and whose frequency is >0 after this timepoint
+dynamics_long_day0mutations_woutday0 %>% subset(frequency>0) %>% select(mouse,seqid_position_mutation_gene) %>% unique() %>% group_by(mouse) %>% summarize(count=n())
+```
+
+In how many timepoints are the day 0 mutations present?
+
+```{r}
+# get all mutations with frequency >0
+# count number of timepoints for each mutation
+# count number of mutations for each number of timepoints
+
+dynamics_long_day0mutations_woutday0_timepointCount<-dynamics_long_day0mutations_woutday0 %>% 
+  subset(frequency>0) %>% 
+  group_by(mouse,seqid_position_mutation_gene) %>% 
+  summarize(timepoint_count=n()) %>% 
+  group_by(mouse,timepoint_count) %>% 
+  summarize(mutation_count=n()) 
+
+DT::datatable(data = dynamics_long_day0mutations_woutday0_timepointCount, extensions = "Buttons", 
+          options = list(pageLength=20,dom = "Blfrtip", buttons = c("csv","excel")))
+
+```
+
+This shows that of the day 0 mutations that are detected at later timepoints, ~50% are detected in only 1 or 2 timepoints.
+
+&nbsp;  
+
+
+What is the dynamics of the number of mutations for the mutations detected at day 0?
+
+```{r}
+
+# get dataframe with the total number of mutations per timepoint, of those that were detected at day 0
+dynamics_long_day0mutations_mutationCount<-dynamics_long_day0mutations %>% 
+  subset(frequency>0) %>% 
+  group_by(diet,diet_week,mouse,day) %>% 
+  summarize(mutation_tot_d0=n())
+
+# make day numeric
+dynamics_long_day0mutations_mutationCount$day<-as.numeric(dynamics_long_day0mutations_mutationCount$day)
+
+#create plot
+
+ggplot(dynamics_long_day0mutations_mutationCount,aes(x=day/7,y=mutation_tot_d0))+
+  geom_line(aes(color=mouse,group=mouse),size=1.5)+
+  geom_point(aes(fill=mouse),shape=21,size=3)+
+  xlab("Week")+ylab("Mutation count (day 0 mutations)")+
+  scale_color_manual(values=c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  scale_fill_manual(values=c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  scale_x_continuous(breaks = seq(0,12,1))+
+  scale_y_continuous(limits=c(0,130),breaks = seq(0,140,20))
+
+
+```
+
+What proprotion of all mutations were already detected at day 0?
+
+
+```{r}
+
+#create data
+dynamics_long_mutationCount_prop<-left_join(dynamics_long_mutationCount,dynamics_long_day0mutations_mutationCount)
+
+#convert day to numeric
+dynamics_long_mutationCount_prop$prop_d0_muts<-dynamics_long_mutationCount_prop$mutation_tot_d0/dynamics_long_mutationCount_prop$mutation_tot
+
+#replace NA by 0
+dynamics_long_mutationCount_prop[is.na(dynamics_long_mutationCount_prop)]<-0
+
+#create plot
+ggplot(dynamics_long_mutationCount_prop,aes(x=day/7,y=prop_d0_muts))+
+  geom_line(aes(color=mouse,group=mouse),size=1.5)+
+  geom_point(aes(fill=mouse),shape=21,size=3)+
+  xlab("Week")+ylab("Proportion of mutations\nthat were detected at day 0")+
+  scale_color_manual(values=c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  scale_fill_manual(values=c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  cowplot::theme_cowplot()+
+  background_grid(major="y")+
+  scale_x_continuous(breaks = seq(0,12,1))
+
+```
+
+Plot the temporal dynamics of the mutations that are detected at day 0
+```{r,fig.width=5,fig.height=7}
+
+#convert day to numeric
+dynamics_long_day0mutations$day<-as.numeric(dynamics_long_day0mutations$day)
+
+#plot
+ggplot()+
+  geom_line(data=dynamics_long_day0mutations,aes(x=day/7,y=frequency,group=seqid_position_mutation_gene),color="#969696")+
+  scale_y_continuous(breaks = seq(0,1,0.2),limits=c(0,1))+
+  scale_x_continuous(breaks=seq(0,12,1))+
+  theme_cowplot()+
+  theme(legend.position = "none")+
+  background_grid(major = "xy")+
+  facet_wrap(~mouse,ncol=1,labeller = labeller(mouse=c("F2"="AD1","F5"="AD4")))+
+  xlab("Week")+
+  ylab("Mutation frequency")
+
+```
+
+## Plot dynamics of all mutations
+
+```{r,fig.width=5,fig.height=7}
+p<-ggplot()+
+  geom_line(data=dynamics_long_annot,aes(x=day/7,y=frequency,group=seqid_position_mutation_gene,label=locus_name),color="#969696")+
+  scale_y_continuous(breaks = seq(0,1,0.2),limits=c(0,1))+
+  scale_x_continuous(breaks=seq(0,12,1))+
+  theme_cowplot()+
+  theme(legend.position = "none")+
+  background_grid(major = "xy")+
+  facet_wrap(~mouse,ncol=1)+
+  xlab("Week")+
+  ylab("Mutation frequency")
+
+
+p
+```
+
+**Interactive plot**
+```{r}
+ggplotly(p)
+```
+
+
+## Plot dynamics of day 84 parallel mutations
+
+```{r,fig.width=5,fig.height=7}
+p<-ggplot()+
+  geom_line(data=dynamics_long_annot[dynamics_long_annot$parallel=="yes",],aes(x=day/7,y=frequency,group=seqid_position_mutation_gene,label=locus_name),color="#969696")+
+  scale_y_continuous(breaks = seq(0,1,0.2),limits=c(0,1))+
+  scale_x_continuous(breaks=seq(0,12,1))+
+  theme_cowplot()+
+  theme(legend.position = "none")+
+  background_grid(major = "xy")+
+  facet_wrap(~mouse,ncol=1)+
+  xlab("Week")+
+  ylab("Mutation frequency")
+
+
+p
+```
+
+**Interactive plot**
+```{r}
+ggplotly(p)
+```
+
+
+
+## Plot dynamics of mutations changing in frequency by at least 0.3 in at least 4 consecutive timepoints
+
+i.e. the dynamics of such mutations has to at least draw a **M** or a **W**.  
+
+Note that for getting the list of fluctuating mutations, I did not take day 0 into account.  
+
+#### Add information to mutation table about fluctuating mutations
+[**Open temporal dynamics high-confidence mutation list with annotations, parallel and fluctuating**](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat_woutLowConfMutations_withAnnotations_withFluctuations.xlsx)
+
+```{r}
+dynamics_long_annot<-read_xlsx("analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat_woutLowConfMutations_withAnnotations.xlsx")
+
+# get a dataframe for the fluctuations in mutation frequency: select subset of columns
+dynamics_long_fluctuations<-dynamics_long_annot %>% select(c(1:6,10:12,15,17,16,18,13))
+
+# sort rows and calculate difference between consecuteive timepoints
+dynamics_long_fluctuations<-dynamics_long_fluctuations %>%
+  arrange(mouse,seqid_position_mutation_gene,day)
+
+dynamics_long_fluctuations <- dynamics_long_fluctuations %>%
+  group_by(seqid_position_mutation_gene) %>%
+  mutate(diff_freq = frequency - lag(frequency, default = first(frequency))) %>%
+  ungroup()
+
+
+# create new columns for the frequency change was negative or positive and whether the change was at at least 0.3
+# EDIT CODE HERE TO CHANGE THE THRESHOLD OF THE FREQUENCY CHANGE
+dynamics_long_fluctuations$sign<-ifelse(dynamics_long_fluctuations$diff_freq<0,"n","p")
+
+dynamics_long_fluctuations$shift<-ifelse(abs(dynamics_long_fluctuations$diff_freq)>=0.3,"s","w")
+
+# remove day 0 and 13, as the first is the baseline and it does not make sense to calculate shifts between day 13 and day 0
+dynamics_long_fluctuations<-dynamics_long_fluctuations[!dynamics_long_fluctuations$day %in% c(0,13),]
+
+#create new columns that merge the sing of the change with the shift strength
+
+dynamics_long_fluctuations$sign_shift<-paste0(dynamics_long_fluctuations$sign,dynamics_long_fluctuations$shift)
+
+#create new columns that merge the sing of the change with the shift strength and filter for those that fluctuate over at least 4 consecutive timepoints
+# EDIT CODE HERE TO CHANGE THE NUMBER OF TIMEPOINTS OF FREQUENCY CHANGE > THRESHOLD
+
+dynamics_long_fluctuations_codes<-dynamics_long_fluctuations %>% 
+  group_by(mouse,seqid_position_mutation_gene) %>%
+  summarise(code = paste(sign,collapse = ""),
+            code_shift = paste(sign_shift,collapse = ""))
+
+
+fluctuating_mutations<- dynamics_long_fluctuations_codes %>%
+  filter(str_detect(code_shift,'nspsnsps|psnspsns'))
+
+fluctuating_mutations<-unique(fluctuating_mutations$seqid_position_mutation_gene)
+
+#add fluctuation information to main dataframe
+dynamics_long_annot$fluctuating_mutations<-ifelse(dynamics_long_annot$seqid_position_mutation_gene %in% fluctuating_mutations,"yes","no")
+
+# write the long format dataframe to a new file
+# writexl::write_xlsx(dynamics_long_annot,"analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat_woutLowConfMutations_withAnnotations_withFluctuations.xlsx")
+
+```
+
+#### Create the plot
+Plot [PDF](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/temporalDynamics_4timepoints_freq0.3.pdf)
+
+```{r,fig.width=6,fig.height=8}
+# load colorbrewer package
+
+library(RColorBrewer)
+
+# get the unique genes whose mutations are fluctuating >0.3 in 4 consecutive timepoitnts
+fluctuating_genes<-unique(dynamics_long_annot[dynamics_long_annot$fluctuating_mutations=="yes",]$gene)
+
+#######create color lists#######
+#get genes that peak on WD
+fluctuating_genes_peakWD<-dynamics_long_annot %>% subset(gene %in% fluctuating_genes) %>% group_by(gene) %>%
+  filter(frequency == max(frequency)) %>% subset(diet_week=="WD")
+
+fluctuating_genes_peakWD<-unique(fluctuating_genes_peakWD$gene)
+
+n_col<-length(fluctuating_genes_peakWD) #get numer of colors
+
+myColorsWD <- rev(brewer.pal(8,"Reds"))[1:n_col] #get colors in tones of red for WD genes
+
+names(myColorsWD) <- fluctuating_genes_peakWD #ascribe gene names to colors
+
+#get genes that peak on SD
+fluctuating_genes_peakSD<-dynamics_long_annot %>% subset(gene %in% fluctuating_genes) %>% group_by(gene) %>%
+  filter(frequency == max(frequency)) %>% subset(diet_week=="SD")
+
+fluctuating_genes_peakSD<-unique(fluctuating_genes_peakSD$gene)
+
+fluctuating_genes_peakSD<-fluctuating_genes_peakSD[!fluctuating_genes_peakSD=="TDA1000_04007"] #there is one gene, TDA1000_04007, that has maxima on both, but is mostly WD, so remove it from SD
+
+n_col<-length(fluctuating_genes_peakSD) #get numer of colors
+
+myColorsSD <- rev(brewer.pal(8,"Blues"))[1:n_col] #get colors in tones of red for WD genes
+
+names(myColorsSD) <- fluctuating_genes_peakSD #ascribe gene names to colors
+
+#combine all colors
+myColors<-c(myColorsSD,myColorsWD)
+
+#create a dataframe for the shading
+shading_df <- data.frame(ymin = -Inf, 
+                    ymax = Inf,
+                    xmin = seq(0,11,1),  
+                    xmax = c(seq(1,12,1)),
+                    diet = rep(c("WD", "SD"),6))
+
+
+#make the plot
+p1<-ggplot()+
+  geom_line(data=dynamics_long_annot[!dynamics_long_annot$fluctuating_mutations=="yes",],aes(x=day/7,y=frequency,group=seqid_position_mutation_gene),color="grey")+
+  geom_line(data=dynamics_long_annot[dynamics_long_annot$fluctuating_mutations=="yes",],aes(x=day/7,y=frequency,color=gene,group=seqid_position_mutation_gene,linetype=parallel,label=locus_name,label2=annotation,label3=description),size=1)+
+  geom_rect(data = shading_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = diet), alpha = 0.1)+
+  scale_y_continuous(breaks = seq(0,1,0.25))+
+  scale_x_continuous(breaks=seq(0,12,1),limits=c(0,12))+
+  scale_colour_manual(values=myColors)+
+  scale_fill_manual(values=c(NA,"#d73027"))+
+  scale_linetype_manual(values=c(2,1))+
+  theme_cowplot()+
+  theme(legend.position = "none")+
+  background_grid(major = "xy")+
+  facet_wrap(~mouse,ncol=1,labeller=labeller(mouse=c("F2"="AD1","F5"="AD4")))+
+  xlab("Week")+
+  ylab("Mutation frequency")
+
+p1
+
+```
+
+**Interactive plot**
+
+```{r}
+ggplotly(p1)
+
+```
+
+#### List of genes whose mutations have at least 4 changes in frequency of at least 30% 
+```{r}
+
+flugtuating_genes_list<-left_join(
+  
+  dynamics_long_annot[dynamics_long_annot$fluctuating_mutations=="yes",] %>% 
+  subset(frequency>0) %>%
+  select(mouse,seq_id,gene,locus_name,annotation,description,seqid_position_mutation_gene) %>% 
+  distinct() %>%
+  group_by(seq_id,gene,locus_name,description) %>%
+  summarise(no_mice=length(unique(mouse)),
+            no_mutations=length(unique(seqid_position_mutation_gene))),  
+
+  dynamics_long_annot[dynamics_long_annot$fluctuating_mutations=="yes",] %>% 
+  subset(frequency>0) %>%
+  select(mouse,seq_id,gene,locus_name,seqid_position_mutation_gene) %>% 
+  distinct() %>%
+  spread(.,key=mouse,value = seqid_position_mutation_gene))
+  
+
+DT::datatable(data = flugtuating_genes_list, extensions = "Buttons", 
+          options = list(pageLength=20,dom = "Blfrtip", buttons = c("csv","excel")))
+
+```
+
+
+None of the strongly fluctuating mutations are already present at day 0  
+
+```{r}
+
+intersect(unique(day0mutations$seqid_position_mutation_gene),
+unique(na.omit(c(flugtuating_genes_list$F2,flugtuating_genes_list$F5))))
+```
+
+  
+## Plot highlighting mutations in genes that were parallel and differentially abundant at day 84
+Plot [PDF](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/temporalDynamics_significantD84.pdf)  
+
+This shows that differentially mutated genes are not among the most fluctuating.  
+
+
+```{r,fig.width=6,fig.height=8}
+# load annotated list of differentially mutated genes
+df_dietDifferentialMutationalTargets_fdr_p0.05<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutationalTargets_fdr_p0.05.xlsx",sheet=2)
+
+#get list of unique genes with p<0.05
+df_dietDifferentialMutationalTargets_sub<-df_dietDifferentialMutationalTargets_fdr_p0.05 %>% subset(P.val_diet<0.05 & type=="presence_absence")
+
+df_dietDifferentialMutationalTargets_sub<-unique(df_dietDifferentialMutationalTargets_sub$gene)
+
+
+
+myColors2 <- colorRampPalette(brewer.pal(7,"Dark2"))(length(df_dietDifferentialMutationalTargets_sub))
+names(myColors2) <- df_dietDifferentialMutationalTargets_sub
+
+p1<-ggplot()+
+  geom_line(data=dynamics_long_annot[!dynamics_long_annot$gene %in% df_dietDifferentialMutationalTargets_sub,],aes(x=day/7,y=frequency,group=seqid_position_mutation_gene),color="grey")+
+  geom_line(data=dynamics_long_annot[dynamics_long_annot$gene %in% df_dietDifferentialMutationalTargets_sub,],aes(x=day/7,y=frequency,color=gene,group=seqid_position_mutation_gene,linetype=parallel,label=locus_name,label2=annotation,label3=description),size=1)+
+  geom_rect(data = shading_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = diet), alpha = 0.1)+
+  scale_y_continuous(breaks = seq(0,1,0.25))+
+  scale_x_continuous(breaks=seq(0,12,1),limits=c(0,12))+
+  scale_colour_manual(values=myColors2)+
+  scale_fill_manual(values=c(NA,"#d73027"))+
+  theme_cowplot()+
+  theme(legend.position = "none")+
+  background_grid(major = "xy")+
+  facet_wrap(~mouse,ncol=1,labeller=labeller(mouse=c("F2"="AD1","F5"="AD4")))+
+  xlab("Week")+
+  ylab("Mutation frequency")
+
+
+p1
+```
+
+**Interactive plot**
+
+```{r}
+ggplotly(p1)
+
+```
+
+## Plot highlighting mutations in genes that were parallel and general (not differentially abundant at day 84)
+Plot [PDF](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/temporalDynamics_generalD84.pdf)
+
+This shows that non-differentially mutated (general) parallel genes cover many of the mutations that are fluctuating.  
+
+
+```{r,fig.width=6,fig.height=8}
+
+#get list of unique genes taht were parallel and did not have p<0.05
+
+general_genes<-dynamics_long_annot %>% subset(!gene %in% df_dietDifferentialMutationalTargets_sub & parallel=="yes")
+general_genes<-unique(general_genes$gene)
+
+myColors2 <- colorRampPalette(brewer.pal(7,"Dark2"))(length(general_genes))
+names(myColors2) <- general_genes
+
+p1<-ggplot()+
+  geom_line(data=dynamics_long_annot[!dynamics_long_annot$gene %in% general_genes,],aes(x=day/7,y=frequency,group=seqid_position_mutation_gene),color="grey")+
+  geom_line(data=dynamics_long_annot[dynamics_long_annot$gene %in% general_genes,],aes(x=day/7,y=frequency,color=gene,group=seqid_position_mutation_gene,linetype=parallel,label=locus_name,label2=annotation,label3=description),size=1)+
+  geom_rect(data = shading_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = diet), alpha = 0.1)+
+  scale_y_continuous(breaks = seq(0,1,0.25))+
+  scale_x_continuous(breaks=seq(0,12,1),limits=c(0,12))+
+  scale_colour_manual(values=myColors2)+
+  scale_fill_manual(values=c(NA,"#d73027"))+
+  theme_cowplot()+
+  theme(legend.position = "none")+
+  background_grid(major = "xy")+
+  facet_wrap(~mouse,ncol=1,labeller=labeller(mouse=c("F2"="AD1","F5"="AD4")))+
+  xlab("Week")+
+  ylab("Mutation frequency")
+
+
+p1
+```
+
+**Interactive plot**
+
+```{r}
+ggplotly(p1)
+
+```
+
+How many of the mutations in the temporal dynamics are in d84 parallel mutational targets?  
+
+About 30% of all mutations were in parallel targets.
+
+```{r}
+df<-left_join(
+  dynamics_long_annot %>% subset(frequency>0) %>%
+  group_by(mouse,seqid_position_mutation_gene) %>%
+  summarise(min_freq=min(frequency)) %>%
+  group_by(mouse) %>%
+  summarise(total_mutations=n()),
+
+dynamics_long_annot %>% subset(frequency>0 & parallel=="yes") %>%
+  group_by(mouse,seqid_position_mutation_gene) %>%
+  summarise(min_freq=min(frequency)) %>%
+  group_by(mouse) %>%
+  summarise(total_d84parallel_mutations=n()))
+
+df$fraction_d84parallel_mutations<-df$total_d84parallel_mutations/df$total_mutations
+
+df
+```
+
+
+## Global summary of temporal dynamics (mutation fluctuations)
+
+This is an attempt to make a plot that can quantitatively summarize the dynamics. The x-axis shows the number of fluctuations that a mutation undergoes, i.e. the number of times a mutation does a V or an inverted V over three consecutive timepoints (e.g. shifting from 0.2 to 0.5 to 0.4). The y-axis for the top panel shows the proportion of mutations that has each number of fluctuations. The y-axis for the bottom plot shows the maximum frequency change that each mutation undergoes. Its interesting that most mutations seem to fluctuate only once, but the mutations that change the most are those that fluctuate 5 times, which is the maximum possible.
+
+#### ALL mutations  
+Plot [PDF](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/globalSummary_temporalDynamics_mutationFluctuations_allMutations.pdf)   
+
+This figure shows that the mutations that fluctuate more times are also the ones that show stronger changes in frequency (i.e. reach higher frequencies), indicating there is strong selection on such mutations to change in frequency. 
+
+```{r,fig.width=6,fig.height=8}
+
+#### remove mutations that have frequency=0 at all timepoints (per mouse) ###
+
+#get list of mutations per mouse that are always 0
+dynamics_long_fluctuations_zero<-dynamics_long_fluctuations %>% group_by(mouse,seqid_position_mutation_gene) %>%
+  summarise(sum_freq=sum(frequency)) %>% subset(sum_freq==0)
+
+#create new filtering column
+dynamics_long_fluctuations_zero$seqid_position_mutation_gene_mouse<-paste0(dynamics_long_fluctuations_zero$seqid_position_mutation_gene,"_",
+                                                                           dynamics_long_fluctuations_zero$mouse)
+
+dynamics_long_fluctuations_zero<-unique(dynamics_long_fluctuations_zero$seqid_position_mutation_gene_mouse)
+
+#add new columns for filtering
+
+dynamics_long_fluctuations_codes$seqid_position_mutation_gene_mouse<-paste0(dynamics_long_fluctuations_codes$seqid_position_mutation_gene,"_",
+                                                                            dynamics_long_fluctuations_codes$mouse)
+
+dynamics_long_fluctuations$seqid_position_mutation_gene_mouse<-paste0(dynamics_long_fluctuations$seqid_position_mutation_gene,"_",
+                                                                            dynamics_long_fluctuations$mouse)
+
+
+#remove mutations that are always zero from dynamics_long_fluctuations_codes and from dynamics_long_fluctuations
+dynamics_long_fluctuations_codes_nozero<-dynamics_long_fluctuations_codes %>% subset(!seqid_position_mutation_gene_mouse %in% dynamics_long_fluctuations_zero)
+
+
+dynamics_long_fluctuations_maxChange_nozero<-dynamics_long_fluctuations %>% subset(!seqid_position_mutation_gene_mouse %in% dynamics_long_fluctuations_zero)
+
+#### create new table with maximum frequency change and the number of times a number of fluctuations is found ####
+
+# calculate maximum frequency change
+dynamics_long_fluctuations_maxChange_nozero<-dynamics_long_fluctuations_maxChange_nozero %>% group_by(mouse,seqid_position_mutation_gene) %>%
+  summarise(max_diff_freq=max(abs(diff_freq)))
+
+# join table of max freq change with table of fluctuation codes
+dynamics_long_fluctuations_maxChange_nozero<-left_join(dynamics_long_fluctuations_codes_nozero[1:4],dynamics_long_fluctuations_maxChange_nozero)
+
+#count number of fluctuations
+dynamics_long_fluctuations_maxChange_nozero$count_code<-str_count(dynamics_long_fluctuations_maxChange_nozero$code,"pn|np")
+
+### create new table summarizing the fluctuation counts###
+
+# count how many times each fluctuation happened
+dynamics_long_fluctuations_maxChange_nozero_summary<-dynamics_long_fluctuations_maxChange_nozero %>% group_by(mouse,count_code) %>% 
+  summarise(count=n())
+
+# count the total number of fluctuations
+dynamics_long_fluctuations_maxChange_nozero_summary<-dynamics_long_fluctuations_maxChange_nozero_summary %>% group_by(mouse) %>% mutate(total=sum(count))
+
+#calculate the frequency of each number of fluctuations
+dynamics_long_fluctuations_maxChange_nozero_summary$proportion<-dynamics_long_fluctuations_maxChange_nozero_summary$count/dynamics_long_fluctuations_maxChange_nozero_summary$total
+
+#### make plots###
+p_b<-ggplot(dynamics_long_fluctuations_maxChange_nozero,aes(x=as.factor(count_code),y=max_diff_freq,fill=mouse))+
+  geom_boxplot(alpha=0.5,outlier.shape = NA)+ggbeeswarm::geom_quasirandom(dodge.width = 0.8,shape=21,size=2)+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.2))+
+  scale_fill_manual(values = c("#FDE725FF", "#20A387FF"))+
+  theme_cowplot()+
+  background_grid(major="xy")+
+  theme(legend.position = "none")+
+  xlab("Number of fluctuations")+
+  ylab("Maximum frequency change")
+
+
+
+p_t<-ggplot(dynamics_long_fluctuations_maxChange_nozero_summary,aes(x=as.factor(count_code),y=proportion,fill=mouse,group=mouse))+
+  geom_line(aes(color=mouse),size=1)+geom_point(shape=21,size=3)+
+  scale_fill_manual(values = c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  scale_color_manual(values = c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  scale_y_continuous(limits=c(0,0.7),breaks=seq(0,0.6,0.2))+
+  theme_cowplot()+
+  background_grid(major="xy")+
+  xlab("Number of fluctuations")+
+  ylab("Proportion of mutations")+
+  theme(legend.position = c(0.85,0.8),axis.title.x = element_blank(),axis.text.x = element_blank(),axis.ticks.x = element_blank())
+
+
+library(patchwork)
+(p_t / p_b)+plot_layout(heights = c(1,2.5))
+
+
+
+```
+
+#### PARALLEL mutations  
+Plot [PDF](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/globalSummary_temporalDynamics_mutationFluctuations_parallelMutations.pdf)   
+
+```{r,fig.width=6,fig.height=8}
+##### add information about parallel mutations ######
+#load parallel mutation data
+d84_long_parallel<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations.xlsx")
+
+# add column for parallel mutations and filter table for those that are parallel
+dynamics_long_fluctuations_maxChange_nozero$parallel<-ifelse(dynamics_long_fluctuations_maxChange_nozero$seqid_position_mutation_gene %in% d84_long_parallel$seqid_position_mutation_gene, "yes","no")
+
+dynamics_long_fluctuations_maxChange_nozero<-dynamics_long_fluctuations_maxChange_nozero %>% subset(parallel=="yes")
+
+
+### create new table summarizing the fluctuation counts###
+
+# count how many times each fluctuation happened
+dynamics_long_fluctuations_maxChange_nozero_summary<-dynamics_long_fluctuations_maxChange_nozero %>% group_by(mouse,count_code) %>% 
+  summarize(count=n())
+
+# count the total number of fluctuations
+dynamics_long_fluctuations_maxChange_nozero_summary<-dynamics_long_fluctuations_maxChange_nozero_summary %>% group_by(mouse) %>% mutate(total=sum(count))
+
+#calculate the frequency of each number of fluctuations
+dynamics_long_fluctuations_maxChange_nozero_summary$proportion<-dynamics_long_fluctuations_maxChange_nozero_summary$count/dynamics_long_fluctuations_maxChange_nozero_summary$total
+
+#### make plots###
+p_b<-ggplot(dynamics_long_fluctuations_maxChange_nozero,aes(x=as.factor(count_code),y=max_diff_freq,fill=mouse))+
+  geom_boxplot(alpha=0.5,outlier.shape = NA,position = position_dodge(preserve = "single"))+
+  ggbeeswarm::geom_quasirandom(dodge.width = 0.8,shape=21,size=2,position = position_dodge(preserve = "single"))+
+  scale_y_continuous(limits=c(0,1),breaks=seq(0,1,0.2))+
+  scale_fill_manual(values = c("#FDE725FF", "#20A387FF"))+
+  theme_cowplot()+
+  background_grid(major="xy")+
+  theme(legend.position = "none")+
+  xlab("Number of fluctuations")+
+  ylab("Maximum frequency change")
+
+
+
+p_t<-ggplot(dynamics_long_fluctuations_maxChange_nozero_summary,aes(x=as.factor(count_code),y=proportion,fill=mouse,group=mouse))+
+  geom_line(aes(color=mouse),size=1)+geom_point(shape=21,size=3)+
+  scale_fill_manual(values = c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  scale_color_manual(values = c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  scale_y_continuous(limits=c(0,0.7),breaks=seq(0,0.6,0.2))+
+  theme_cowplot()+
+  background_grid(major="xy")+
+  xlab("Number of fluctuations")+
+  ylab("Proportion of mutations")+
+  theme(legend.position = c(0.85,0.8),axis.title.x = element_blank(),axis.text.x = element_blank(),axis.ticks.x = element_blank())
+
+
+library(patchwork)
+(p_t / p_b)+plot_layout(heights = c(1,2.5))
+
+```
+
+## Plot the number of mutations against their day of emergence (frequency>0) and show their maximum frequency
+
+#### All mutations
+```{r, fig.width=8,fig.height=6}
+
+#get data frame with only the rows at which each mutation per mouse has its max frequency
+dynamics_long_annot_maxFrequency<-dynamics_long_annot %>% 
+  subset(frequency>0) %>%
+  group_by(mouse,seqid_position_mutation_gene) %>% 
+  slice(which.max(frequency)) %>%
+  select(mouse,seqid_position_mutation_gene,frequency)
+
+#get data frame with only the rows at which each mutation per mouse has its min day that is non zero
+dynamics_long_annot_minDay<-dynamics_long_annot %>% 
+  subset(frequency>0) %>%
+  group_by(mouse,seqid_position_mutation_gene) %>% 
+  slice(which.min(day)) %>%
+  select(mouse,seqid_position_mutation_gene,day)
+
+#join both dataframes
+dynamics_long_annot_maxFrequency_minDay<-left_join(dynamics_long_annot_maxFrequency,dynamics_long_annot_minDay)
+
+#discretize frequency
+dynamics_long_annot_maxFrequency_minDay$freq_factor<-cut(dynamics_long_annot_maxFrequency_minDay$frequency,breaks=seq(0,1,0.1),
+                             labels=c("0-0.1","0.1-0.2","0.2-0.3","0.3-0.4","0.4-0.5","0.5-0.6","0.6-0.7","0.7-0.8","0.8-0.9","0.9-1"))
+
+#load color library
+library(rcartocolor)
+
+#create color palette
+myColors<-colorRampPalette(carto_pal(7,"Sunset"))(10)
+names(myColors)<-sort(unique(dynamics_long_annot_maxFrequency_minDay$freq_factor))
+
+p_all<-dynamics_long_annot_maxFrequency_minDay %>% group_by(mouse,day,freq_factor) %>% summarize(count=n()) %>% 
+  ggplot(aes(x=day,y=count,fill=freq_factor))+
+  geom_point(shape=21,size=3)+
+  scale_fill_manual(values=myColors,name="Maximum\nMutation\nFrequency")+
+  facet_wrap(~mouse,labeller=labeller(mouse=c("F2"="AD1","F5"="AD4")))+
+  xlab("Day of mutation emergence")+
+  ylab("Number of mutations")+
+  theme_cowplot()+
+  background_grid(major="xy")
+
+p_all
+
+```
+
+#### without mutations whose max frequency is 0.1 (for better vizualization)
+
+```{r, fig.width=8,fig.height=6}
+p_no0.1<-dynamics_long_annot_maxFrequency_minDay %>% group_by(mouse,day,freq_factor) %>% summarize(count=n()) %>% 
+  subset(!freq_factor=="0-0.1") %>%
+  ggplot(aes(x=day,y=count,fill=freq_factor))+
+  geom_point(shape=21,size=3)+
+  scale_fill_manual(values=myColors,name="Maximum\nMutation\nFrequency")+
+  scale_y_continuous(limits=c(0,5),breaks=seq(0,5,1))+
+  facet_wrap(~mouse,labeller=labeller(mouse=c("F2"="AD1","F5"="AD4")))+
+  xlab("Day of mutation emergence")+
+  ylab("Number of mutations")+
+  theme_cowplot()+
+  background_grid(major="xy")
+
+p_no0.1
+```
+
+This shows that most mutations that have a high maximum frequency emerge within the first half of the experiment.
+
+#### Mutations that reach high maximum frequencies, generally emerge early and are maintained throughout the experiment  
+
+Plot [PDF](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/mutationResidenceTime_emergenceDay_maxFrequency.pdf)   
+
+
+This is a complex plot, but the:  
+- x axis indicates the time at which mutations emerged  
+- y axis indicates the amount of time that a mutation was detected  
+- point fill colours indicate the mutation frequency (discretized in ranges of 0.1)  
+- point border color indicates from its emergence day to day 84  
+- size indicates the number of mutations that fit each combination of the above factors  
+
+
+
+```{r}
+# get data frame with only the rows at which each mutation per mouse has its max day that is non zero
+dynamics_long_annot_maxDay<-dynamics_long_annot %>% 
+  subset(frequency>0) %>%
+  group_by(mouse,seqid_position_mutation_gene) %>% 
+  slice(which.max(day)) %>%
+  select(mouse,seqid_position_mutation_gene,day)
+
+# rename max day
+dynamics_long_annot_maxDay<-dynamics_long_annot_maxDay %>% rename("max_day"="day")
+
+# join data frames
+dynamics_long_annot_maxFrequency_minDay_maxDay<-left_join(dynamics_long_annot_maxFrequency_minDay,dynamics_long_annot_maxDay)
+
+# calculate residence time
+dynamics_long_annot_maxFrequency_minDay_maxDay$residence_time<-dynamics_long_annot_maxFrequency_minDay_maxDay$max_day-dynamics_long_annot_maxFrequency_minDay_maxDay$day
+
+# calculate total number of days that mutation is detected
+dynamics_long_annot_maxFrequency_minDay_maxDay$time_total<-dynamics_long_annot_maxFrequency_minDay_maxDay$residence_time+dynamics_long_annot_maxFrequency_minDay_maxDay$day
+
+# create column indicating whether a mutation was detected until day 84 after its emergence
+dynamics_long_annot_maxFrequency_minDay_maxDay$resident_untilEnd<-ifelse(dynamics_long_annot_maxFrequency_minDay_maxDay$time_total==84,"yes","no")
+
+# create dataframe cunting mutations of each type
+dynamics_long_annot_maxFrequency_minDay_maxDay_count<-dynamics_long_annot_maxFrequency_minDay_maxDay %>% group_by(mouse,day,residence_time,resident_untilEnd,freq_factor) %>% summarize(count=n())
+
+#discretize mutation counts
+dynamics_long_annot_maxFrequency_minDay_maxDay_count$count_factor<-cut(dynamics_long_annot_maxFrequency_minDay_maxDay_count$count,breaks=c(0,0.9,1,5,50,Inf),
+                             labels=c("0-1","1","1-5","5-50",">50"))
+
+
+  
+#make plot
+ggplot(dynamics_long_annot_maxFrequency_minDay_maxDay_count,aes(x=as.factor(day),y=residence_time,fill=freq_factor,size=count_factor,color=resident_untilEnd))+
+  geom_quasirandom(shape=21)+
+  scale_fill_manual(values=myColors,name="Maximum\nMutation\nFrequency")+
+  scale_color_manual(values=c("grey","black"),name="Mutation\npresistence\nuntil day 84")+
+  scale_size_manual(values=c(2,4,6,10), name="Mutation count")+
+  scale_y_continuous(breaks=seq(0,80,20))+
+  facet_wrap(~mouse,labeller=labeller(mouse=c("F2"="AD1","F5"="AD4")))+
+  xlab("Day of mutation emergence")+
+  ylab("Mutation residence time (days)")+
+  theme_cowplot()+
+  background_grid(major="xy",color.major = "#f0f0f0")+
+  theme(legend.title = element_text(size=10),legend.text = element_text(size=8))
+
+
+```
+
+
+#### Dynamics of the number of new mutations  
+Plot [PDF](analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/mutationCount_newMutations_temporalDynamics.pdf)   
+
+
+This dynamics seem quite mouse dependent, but at least in one mouse, new mutations always peak in the SD diet, suggesting the SD diet might (in some cases) boost diversity.
+
+```{r}
+
+#create a dataframe for the shading
+shading_df <- data.frame(ymin = -Inf, 
+                    ymax = Inf,
+                    xmin = seq(0,11,1),  
+                    xmax = c(seq(1,12,1)),
+                    diet = rep(c("WD", "SD"),6))
+
+
+#create plot
+dynamics_long_annot_maxFrequency_minDay %>% group_by(mouse,day) %>% summarize(count=n()) %>%
+  ggplot(aes(x=day/7,y=count))+
+  geom_rect(inherit.aes = FALSE,data = shading_df, aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = diet), alpha = 0.1)+
+  geom_line(aes(group=mouse,colour=mouse),size=1.5)+
+  geom_point(aes(fill=mouse),shape=21,size=3)+
+  scale_fill_manual(values=c("#FDE725FF", "#20A387FF",NA,"#d73027"),labels=c("AD1","AD4"))+
+  scale_colour_manual(values=c("#FDE725FF", "#20A387FF"),labels=c("AD1","AD4"))+
+  scale_x_continuous(breaks=seq(0,12,1),limits=c(0,12))+
+  scale_y_continuous(breaks=seq(0,120,10),limits=c(0,125))+
+  xlab("Week")+
+  ylab("Number of new mutations")+
+  theme_cowplot()+
+  background_grid(major="xy")
+
+
+```
+
+Isabel asked to check if mutations reaching >25% frequency had multiple matches. To get  list of muttions I created the list below
+```{r}
+mutations_dynamics_toCheckReads<-dynamics_long %>% filter(frequency>=0.25) %>% select(seq_id,position,mutation,annotation,gene,mouse,day) %>% distinct() %>% group_by(seq_id,position,mutation,annotation,gene,mouse) %>% summarise(day = paste0(day,collapse = " | "))
+
+
+mutations_dynamics_toCheckReads
+writexl::write_xlsx(mutations_dynamics_toCheckReads,"analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/mutations_dynamics_toCheckReads.xlsx")
+```
+Using this file, I manually oppened the corresponding breseq index files and each of these mutations and copied reads from each mutation to blast against the TDA1000 genome and check the number of matches. I added this to the file in the column number_matches_readTOgenome and added some info in the notes column.
+
+
