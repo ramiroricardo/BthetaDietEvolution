@@ -1189,6 +1189,9 @@ However, there were a few mutational targets in which only one or none of the di
 #### Prepare dataframe for plot
 ```{r}
 
+df_dietDifferentialMutationalTargets_fdr<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutationalTargets_fdr_c.xlsx")
+
+
 # select only significant genes
 df_dietDifferentialMutationalTargets_fdr_p0.05<-df_dietDifferentialMutationalTargets_fdr %>% subset(P.val_diet<0.05)
 
