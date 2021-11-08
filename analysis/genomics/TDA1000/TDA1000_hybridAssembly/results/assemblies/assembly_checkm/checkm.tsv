@@ -1,0 +1,4 @@
+Bin Id	Marker lineage	# genomes	# markers	# marker sets	0	1	2	3	4	5+	Completeness	Contamination	Strain heterogeneity
+GCF_000011065.1_ASM1106v1_genomic	o__Bacteroidales (UID2657)	160	492	269	2	489	1	0	0	0	99.26	0.01	0.00
+GCF_014131755.1_ASM1413175v1_genomic	o__Bacteroidales (UID2657)	160	492	269	2	489	1	0	0	0	99.26	0.01	0.00
+TDA1000_trimmed_flye_plasmid_raconNPm4_medaka_raconILM_pilonILM	o__Bacteroidales (UID2657)	160	492	269	2	489	1	0	0	0	99.26	0.01	0.00
