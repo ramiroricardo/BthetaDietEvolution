@@ -1,0 +1,1463 @@
+<!DOCTYPE html
+PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<html>
+<head>
+<title>Mutation Comparison</title>
+<style type = "text/css">
+body {font-family: sans-serif; font-size: 11pt;}
+th {background-color: rgb(0,0,0); color: rgb(255,255,255);}
+table {background-color: rgb(1,0,0); color: rgb(0,0,0);}
+tr {background-color: rgb(255,255,255);}
+.mutation_in_codon {color:red; text-decoration : underline;}
+.snp_type_synonymous{color:green;}
+.snp_type_nonsynonymous{color:blue;}
+.snp_type_nonsense{color:red;}
+.mutation_header_row {background-color: rgb(0,130,0);}
+.read_alignment_header_row {background-color: rgb(255,0,0);}
+.missing_coverage_header_row {background-color: rgb(0,100,100);}
+.new_junction_header_row {background-color: rgb(0,0,155);}
+.copy_number_header_row {background-color: rgb(153,102,0);}
+.alternate_table_row_0 {background-color: rgb(255,255,255);}
+.alternate_table_row_1 {background-color: rgb(235,235,235);}
+.gray_table_row {background-color: rgb(230,230,245);}
+.polymorphism_table_row {background-color: rgb(160,255,160);}
+.highlight_table_row {background-color: rgb(192,255,255);}
+.reject_table_row {background-color: rgb(255,200,165);}
+.user_defined_table_row {background-color: rgb(255,255,0);}
+.information_table_row {background-color: rgb(200,255,255);}
+.junction_repeat {background-color: rgb(255,165,0)}
+.junction_gene {}
+.hidden { display: none; }
+.unhidden { display: block; }
+
+</style>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<script type="text/javascript">
+  function hideTog(divID) {
+    var item = document.getElementById(divID);
+    if (item) {
+      item.className=(item.className=='hidden')?'unhidden':'hidden';
+    }
+  }
+  function showTog(butID) {
+    var button = document.getElementById(butID);
+    if (button) {
+      button.value=(button.value=='Show')?'Hide':'Show';
+    }
+  }
+</script>
+
+</head>
+<body>
+<!--Output Html_Mutation_Table_String-->
+<table border="0" cellspacing="1" cellpadding="3">
+<tr><th colspan="11" align="left" class="mutation_header_row">Predicted mutations</th></tr><tr>
+<th>seq&nbsp;id</th>
+<th>position</th>
+<th>mutation</th>
+<th>TDA1000_mi_pol_MQ</th>
+<th>TDA1001_mi_pol_MQ</th>
+<th>TDA1001_ne_pol_MQ</th>
+<th>TDA1002_mi_pol_MQ</th>
+<th>TDA1002_ne_pol_MQ</th>
+<th>annotation</th>
+<th>gene</th>
+<th width="100%">description</th>
+</tr>
+
+<!-- Item Lines -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">15,189</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">1.6%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_nonsynonymous">R190H</font>&nbsp;(C<font class="mutation_in_codon">G</font>C&rarr;C<font class="mutation_in_codon">A</font>C)&nbsp;</td>
+<td align="center"><i>TDA1000_00011</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">48,829</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.90%</td>
+<td align="center">intergenic&nbsp;(&#8209;369/&#8209;607)</td>
+<td align="center"><i>TDA1000_00037</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_00038</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">66,484</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">2.1%</td><td align="right"></td><td align="right">2.6%</td>
+<td align="center">coding&nbsp;(151&#8209;153/375&nbsp;nt)</td>
+<td align="center"><i>TDA1000_00055</i>&nbsp;&larr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">202,223</td><!-- Position -->
+<td align="center">T&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.4%</td>
+<td align="center"><font class="snp_type_nonsynonymous">D115A</font>&nbsp;(G<font class="mutation_in_codon">A</font>C&rarr;G<font class="mutation_in_codon">C</font>C)&nbsp;</td>
+<td align="center"><i>TDA1000_00176</i>&nbsp;&larr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">213,107</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.90%</td>
+<td align="center">intergenic&nbsp;(&#8209;478/&#8209;145)</td>
+<td align="center"><i>TDA1000_00185</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_00186</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">295,754</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">8.8%</td>
+<td align="center">intergenic&nbsp;(+318/+958)</td>
+<td align="center"><i>TDA1000_00252</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_00253</i></td>
+<td align="left">IS3 family transposase ISElsp1/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">295,770</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">5.6%</td>
+<td align="center">intergenic&nbsp;(+334/+942)</td>
+<td align="center"><i>TDA1000_00252</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_00253</i></td>
+<td align="left">IS3 family transposase ISElsp1/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">295,790</td><!-- Position -->
+<td align="center">C&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">4.0%</td>
+<td align="center">intergenic&nbsp;(+354/+922)</td>
+<td align="center"><i>TDA1000_00252</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_00253</i></td>
+<td align="left">IS3 family transposase ISElsp1/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">295,794</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">4.0%</td>
+<td align="center">intergenic&nbsp;(+358/+918)</td>
+<td align="center"><i>TDA1000_00252</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_00253</i></td>
+<td align="left">IS3 family transposase ISElsp1/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">295,798</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">4.2%</td>
+<td align="center">intergenic&nbsp;(+362/+914)</td>
+<td align="center"><i>TDA1000_00252</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_00253</i></td>
+<td align="left">IS3 family transposase ISElsp1/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">383,350</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.79%</td>
+<td align="center"><font class="snp_type_nonsense">W16*</font>&nbsp;(TG<font class="mutation_in_codon">G</font>&rarr;TG<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00344</i>&nbsp;&larr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">432,722</td><!-- Position -->
+<td align="center">&Delta;7&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.65%</td>
+<td align="center">intergenic&nbsp;(&#8209;3/+110)</td>
+<td align="center"><i>TDA1000_00385</i>&nbsp;&larr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_00386</i></td>
+<td align="left">hypothetical protein/Adenosylhomocysteinase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">484,021</td><!-- Position -->
+<td align="center">G&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.8%</td>
+<td align="center"><font class="snp_type_nonsynonymous">N217K</font>&nbsp;(AA<font class="mutation_in_codon">C</font>&rarr;AA<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00418</i>&nbsp;&larr;</td>
+<td align="left">Sensor histidine kinase RcsC</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">497,549</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">2.6%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_nonsynonymous">R206H</font>&nbsp;(C<font class="mutation_in_codon">G</font>T&rarr;C<font class="mutation_in_codon">A</font>T)&nbsp;</td>
+<td align="center"><i>TDA1000_00427</i>&nbsp;&rarr;</td>
+<td align="left">Protein translocase subunit SecD</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">685,762</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.51%</td>
+<td align="center">coding&nbsp;(506&#8209;508/2145&nbsp;nt)</td>
+<td align="center"><i>TDA1000_00551</i>&nbsp;&larr;</td>
+<td align="left">Choline trimethylamine&#8209;lyase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">709,811</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.3%</td>
+<td align="center"><font class="snp_type_nonsynonymous">S91G</font>&nbsp;(<font class="mutation_in_codon">A</font>GC&rarr;<font class="mutation_in_codon">G</font>GC)&nbsp;</td>
+<td align="center"><i>TDA1000_00566</i>&nbsp;&larr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">792,319</td><!-- Position -->
+<td align="center">A&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">2.2%</td>
+<td align="center"><font class="snp_type_nonsynonymous">K192T</font>&nbsp;(A<font class="mutation_in_codon">A</font>G&rarr;A<font class="mutation_in_codon">C</font>G)&nbsp;</td>
+<td align="center"><i>TDA1000_00626</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">804,955</td><!-- Position -->
+<td align="center">G&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.85%</td>
+<td align="center">intergenic&nbsp;(+49/&#8209;63)</td>
+<td align="center"><i>TDA1000_00634</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_00635</i></td>
+<td align="left">Phosphopantetheine adenylyltransferase/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">911,058</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.85%</td>
+<td align="center"><font class="snp_type_nonsynonymous">H661L</font>&nbsp;(C<font class="mutation_in_codon">A</font>T&rarr;C<font class="mutation_in_codon">T</font>T)&nbsp;</td>
+<td align="center"><i>TDA1000_00706</i>&nbsp;&larr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">949,519</td><!-- Position -->
+<td align="center">C&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">1.5%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_synonymous">I19I</font>&nbsp;(AT<font class="mutation_in_codon">C</font>&rarr;AT<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00730</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,095,910</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.7%</td>
+<td align="center"><font class="snp_type_synonymous">L135L</font>&nbsp;(CT<font class="mutation_in_codon">A</font>&rarr;CT<font class="mutation_in_codon">G</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,095,928</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">2.5%</td>
+<td align="center"><font class="snp_type_synonymous">S129S</font>&nbsp;(TC<font class="mutation_in_codon">A</font>&rarr;TC<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,095,985</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">2.1%</td>
+<td align="center"><font class="snp_type_synonymous">V110V</font>&nbsp;(GT<font class="mutation_in_codon">A</font>&rarr;GT<font class="mutation_in_codon">G</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,048</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">7.6%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_synonymous">T89T</font>&nbsp;(AC<font class="mutation_in_codon">A</font>&rarr;AC<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,057</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">10.6%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_synonymous">T86T</font>&nbsp;(AC<font class="mutation_in_codon">A</font>&rarr;AC<font class="mutation_in_codon">G</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,069</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">4.1%</td><td align="right"></td><td align="right">3.2%</td>
+<td align="center"><font class="snp_type_synonymous">N82N</font>&nbsp;(AA<font class="mutation_in_codon">T</font>&rarr;AA<font class="mutation_in_codon">C</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,096</td><!-- Position -->
+<td align="center">G&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">1.3%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_synonymous">G73G</font>&nbsp;(GG<font class="mutation_in_codon">C</font>&rarr;GG<font class="mutation_in_codon">G</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,105</td><!-- Position -->
+<td align="center">A&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">1.8%</td><td align="right"></td><td align="right">1.4%</td>
+<td align="center"><font class="snp_type_synonymous">G70G</font>&nbsp;(GG<font class="mutation_in_codon">T</font>&rarr;GG<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,114</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">1.1%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_synonymous">I67I</font>&nbsp;(AT<font class="mutation_in_codon">C</font>&rarr;AT<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,293</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">6.9%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_nonsynonymous">M8L</font>&nbsp;(<font class="mutation_in_codon">A</font>TG&rarr;<font class="mutation_in_codon">T</font>TG)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,297</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">4.5%</td><td align="right"></td><td align="right">5.6%</td>
+<td align="center"><font class="snp_type_synonymous">I6I</font>&nbsp;(AT<font class="mutation_in_codon">T</font>&rarr;AT<font class="mutation_in_codon">C</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,300</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">4.7%</td><td align="right"></td><td align="right">4.9%</td>
+<td align="center"><font class="snp_type_synonymous">Y5Y</font>&nbsp;(TA<font class="mutation_in_codon">C</font>&rarr;TA<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,309</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">6.4%</td>
+<td align="center"><font class="snp_type_synonymous">K2K</font>&nbsp;(AA<font class="mutation_in_codon">A</font>&rarr;AA<font class="mutation_in_codon">G</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00850</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor P39</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,924</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">10.2%</td><td align="right">17.6%</td><td align="right">12.3%</td>
+<td align="center"><font class="snp_type_synonymous">K75K</font>&nbsp;(AA<font class="mutation_in_codon">G</font>&rarr;AA<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,933</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">7.6%</td><td align="right">14.3%</td><td align="right">6.7%</td>
+<td align="center"><font class="snp_type_synonymous">Y78Y</font>&nbsp;(TA<font class="mutation_in_codon">T</font>&rarr;TA<font class="mutation_in_codon">C</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,936</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">7.7%</td><td align="right">13.7%</td><td align="right">6.2%</td>
+<td align="center"><font class="snp_type_synonymous">I79I</font>&nbsp;(AT<font class="mutation_in_codon">C</font>&rarr;AT<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,096,940</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right">14.3%</td><td align="right">6.1%</td>
+<td align="center"><font class="snp_type_nonsynonymous">L81M</font>&nbsp;(<font class="mutation_in_codon">T</font>TG&rarr;<font class="mutation_in_codon">A</font>TG)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,097,050</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">2.9%</td><td align="right"></td><td align="right">4.1%</td>
+<td align="center"><font class="snp_type_synonymous">K117K</font>&nbsp;(AA<font class="mutation_in_codon">A</font>&rarr;AA<font class="mutation_in_codon">G</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,097,119</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.2%</td>
+<td align="center"><font class="snp_type_synonymous">I140I</font>&nbsp;(AT<font class="mutation_in_codon">T</font>&rarr;AT<font class="mutation_in_codon">C</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,097,137</td><!-- Position -->
+<td align="center">G&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">3.0%</td><td align="right"></td><td align="right">2.5%</td>
+<td align="center"><font class="snp_type_synonymous">G146G</font>&nbsp;(GG<font class="mutation_in_codon">G</font>&rarr;GG<font class="mutation_in_codon">C</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,097,164</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">7.1%</td><td align="right"></td><td align="right">6.3%</td>
+<td align="center"><font class="snp_type_synonymous">N155N</font>&nbsp;(AA<font class="mutation_in_codon">C</font>&rarr;AA<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,097,185</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">7.9%</td><td align="right"></td><td align="right">5.7%</td>
+<td align="center"><font class="snp_type_synonymous">T162T</font>&nbsp;(AC<font class="mutation_in_codon">T</font>&rarr;AC<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,097,191</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">6.0%</td><td align="right"></td><td align="right">2.9%</td>
+<td align="center"><font class="snp_type_synonymous">P164P</font>&nbsp;(CC<font class="mutation_in_codon">T</font>&rarr;CC<font class="mutation_in_codon">C</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,097,248</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">3.5%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_synonymous">V183V</font>&nbsp;(GT<font class="mutation_in_codon">G</font>&rarr;GT<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,097,323</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.92%</td>
+<td align="center"><font class="snp_type_synonymous">L208L</font>&nbsp;(CT<font class="mutation_in_codon">G</font>&rarr;CT<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_00851</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,110,711</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.48%</td>
+<td align="center">coding&nbsp;(786&#8209;788/792&nbsp;nt)</td>
+<td align="center"><i>TDA1000_00859</i>&nbsp;&larr;</td>
+<td align="left">Manganese transport system ATP&#8209;binding protein MntB</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,347,569</td><!-- Position -->
+<td align="center">&Delta;1&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.1%</td>
+<td align="center">coding&nbsp;(1717/3123&nbsp;nt)</td>
+<td align="center"><i>TDA1000_01018</i>&nbsp;&rarr;</td>
+<td align="left">Translation initiation factor IF&#8209;2</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,443,019</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right">49.0%</td><td align="right">20.5%</td><td align="right">24.1%</td><td align="right">25.0%</td><td align="right">23.3%</td>
+<td align="center"><font class="snp_type_nonsynonymous">I12M</font>&nbsp;(AT<font class="mutation_in_codon">A</font>&rarr;AT<font class="mutation_in_codon">G</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_01095</i>&nbsp;&larr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,443,109</td><!-- Position -->
+<td align="center">A&rarr;C</td><!-- Cell Mutation -->
+<td align="right">30.8%</td><td align="right">100%</td><td align="right">57.7%</td><td align="right">70.6%</td><td align="right">63.3%</td>
+<td align="center">intergenic&nbsp;(&#8209;55/&#8209;380)</td>
+<td align="center"><i>TDA1000_01095</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_01096</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,459,518</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right">9.1%</td><td align="right">5.3%</td>
+<td align="center"><font class="snp_type_nonsynonymous">M12I</font>&nbsp;(AT<font class="mutation_in_codon">G</font>&rarr;AT<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_01105</i>&nbsp;&larr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,459,584</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right">27.9%</td><td align="right">35.3%</td><td align="right">24.7%</td><td align="right">38.9%</td><td align="right">35.0%</td>
+<td align="center">intergenic&nbsp;(&#8209;31/+201)</td>
+<td align="center"><i>TDA1000_01105</i>&nbsp;&larr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_01106</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,459,608</td><!-- Position -->
+<td align="center">C&rarr;A</td><!-- Cell Mutation -->
+<td align="right">15.0%</td><td align="right">25.7%</td><td align="right"></td><td align="right">21.0%</td><td align="right">23.1%</td>
+<td align="center">intergenic&nbsp;(&#8209;55/+177)</td>
+<td align="center"><i>TDA1000_01105</i>&nbsp;&larr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_01106</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,480,108</td><!-- Position -->
+<td align="center">G&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">45.4%</td><td align="right">46.7%</td><td align="right">34.8%</td>
+<td align="center"><font class="snp_type_synonymous">T648T</font>&nbsp;(AC<font class="mutation_in_codon">G</font>&rarr;AC<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_01121</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,480,132</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right">39.1%</td><td align="right">28.3%</td><td align="right">32.4%</td><td align="right">39.1%</td>
+<td align="center"><font class="snp_type_synonymous">A656A</font>&nbsp;(GC<font class="mutation_in_codon">T</font>&rarr;GC<font class="mutation_in_codon">C</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_01121</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,480,198</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right">20.9%</td><td align="right"></td><td align="right">15.2%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_nonsynonymous">M678I</font>&nbsp;(AT<font class="mutation_in_codon">G</font>&rarr;AT<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_01121</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,513,072</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">2.7%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_synonymous">T371T</font>&nbsp;(AC<font class="mutation_in_codon">G</font>&rarr;AC<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_01139</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,537,843</td><!-- Position -->
+<td align="center">&Delta;1&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">2.1%</td>
+<td align="center">intergenic&nbsp;(+88/&#8209;196)</td>
+<td align="center"><i>TDA1000_01155</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_01156</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,537,844</td><!-- Position -->
+<td align="center">&Delta;1&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">2.1%</td>
+<td align="center">intergenic&nbsp;(+89/&#8209;195)</td>
+<td align="center"><i>TDA1000_01155</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_01156</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,788,083</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.38%</td>
+<td align="center">coding&nbsp;(67&#8209;69/714&nbsp;nt)</td>
+<td align="center"><i>TDA1000_01337</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,820,969</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">1.3%</td><td align="right"></td><td align="right"></td>
+<td align="center">coding&nbsp;(66&#8209;68/1509&nbsp;nt)</td>
+<td align="center"><i>TDA1000_01371</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,826,702</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">3.9%</td>
+<td align="center">intergenic&nbsp;(&#8209;174/&#8209;893)</td>
+<td align="center"><i>TDA1000_01375</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_01376</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,826,729</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">3.7%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(&#8209;201/&#8209;866)</td>
+<td align="center"><i>TDA1000_01375</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_01376</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">1,827,228</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.6%</td>
+<td align="center">intergenic&nbsp;(&#8209;700/&#8209;367)</td>
+<td align="center"><i>TDA1000_01375</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_01376</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">2,263,627</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.2%</td>
+<td align="center"><font class="snp_type_nonsynonymous">R55H</font>&nbsp;(C<font class="mutation_in_codon">G</font>T&rarr;C<font class="mutation_in_codon">A</font>T)&nbsp;</td>
+<td align="center"><i>TDA1000_01711</i>&nbsp;&larr;</td>
+<td align="left">NAD(P)H&#8209;quinone oxidoreductase subunit 3</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">2,272,935</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.5%</td>
+<td align="center"><font class="snp_type_synonymous">S272S</font>&nbsp;(TC<font class="mutation_in_codon">C</font>&rarr;TC<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_01718</i>&nbsp;&rarr;</td>
+<td align="left">Beta&#8209;galactosidase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">2,360,310</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.98%</td>
+<td align="center"><font class="snp_type_nonsynonymous">A240T</font>&nbsp;(<font class="mutation_in_codon">G</font>CA&rarr;<font class="mutation_in_codon">A</font>CA)&nbsp;</td>
+<td align="center"><i>TDA1000_01768</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">2,438,374</td><!-- Position -->
+<td align="center">&Delta;1&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">1.9%</td><td align="right"></td><td align="right"></td>
+<td align="center">coding&nbsp;(1251/3267&nbsp;nt)</td>
+<td align="center"><i>TDA1000_01811</i>&nbsp;&rarr;</td>
+<td align="left">TonB&#8209;dependent receptor P3</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">2,764,014</td><!-- Position -->
+<td align="center">&Delta;4&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.52%</td>
+<td align="center">coding&nbsp;(785&#8209;788/3321&nbsp;nt)</td>
+<td align="center"><i>TDA1000_02057</i>&nbsp;&rarr;</td>
+<td align="left">TonB&#8209;dependent receptor SusC</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">2,902,984</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">12.5%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_synonymous">F289F</font>&nbsp;(TT<font class="mutation_in_codon">T</font>&rarr;TT<font class="mutation_in_codon">C</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_02179</i>&nbsp;&rarr;</td>
+<td align="left">Type&#8209;1 restriction enzyme EcoKI specificity protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">2,904,448</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">4.1%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(&#8209;70/+456)</td>
+<td align="center"><i>TDA1000_02180</i>&nbsp;&larr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_02181</i></td>
+<td align="left">Tyrosine recombinase XerC/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,157,549</td><!-- Position -->
+<td align="center">G&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">2.4%</td><td align="right"></td><td align="right"></td>
+<td align="center"><font class="snp_type_nonsynonymous">G27W</font>&nbsp;(<font class="mutation_in_codon">G</font>GG&rarr;<font class="mutation_in_codon">T</font>GG)&nbsp;</td>
+<td align="center"><i>TDA1000_02379</i>&nbsp;&rarr;</td>
+<td align="left">RNA polymerase sigma&#8209;H factor</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,415,239</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.95%</td>
+<td align="center">coding&nbsp;(79&#8209;81/558&nbsp;nt)</td>
+<td align="center"><i>TDA1000_02627</i>&nbsp;&rarr;</td>
+<td align="left">Thiol&#8209;disulfide oxidoreductase ResA</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,420,104</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.48%</td>
+<td align="center">coding&nbsp;(84&#8209;86/396&nbsp;nt)</td>
+<td align="center"><i>TDA1000_02633</i>&nbsp;&larr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,454,229</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.1%</td>
+<td align="center">intergenic&nbsp;(+100/&#8209;152)</td>
+<td align="center"><i>TDA1000_02661</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_02662</i></td>
+<td align="left">hypothetical protein/ATP phosphoribosyltransferase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,599,443</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.0%</td>
+<td align="center"><font class="snp_type_nonsynonymous">R208H</font>&nbsp;(C<font class="mutation_in_codon">G</font>C&rarr;C<font class="mutation_in_codon">A</font>C)&nbsp;</td>
+<td align="center"><i>TDA1000_02763</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,620,081</td><!-- Position -->
+<td align="center">&Delta;4&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.66%</td>
+<td align="center">coding&nbsp;(566&#8209;569/1605&nbsp;nt)</td>
+<td align="center"><i>TDA1000_02777</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,641,953</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">5.0%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(+189/&#8209;611)</td>
+<td align="center"><i>TDA1000_02797</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_02798</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,695,333</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.1%</td>
+<td align="center"><font class="snp_type_nonsynonymous">R185H</font>&nbsp;(C<font class="mutation_in_codon">G</font>T&rarr;C<font class="mutation_in_codon">A</font>T)&nbsp;</td>
+<td align="center"><i>TDA1000_02829</i>&nbsp;&larr;</td>
+<td align="left">Galactokinase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,765,273</td><!-- Position -->
+<td align="center">C&rarr;A</td><!-- Cell Mutation -->
+<td align="right">22.5%</td><td align="right">43.7%</td><td align="right">16.0%</td><td align="right">37.0%</td><td align="right">12.4%</td>
+<td align="center"><font class="snp_type_nonsynonymous">Q330K</font>&nbsp;(<font class="mutation_in_codon">C</font>AA&rarr;<font class="mutation_in_codon">A</font>AA)&nbsp;</td>
+<td align="center"><i>TDA1000_02896</i>&nbsp;&rarr;</td>
+<td align="left">D&#8209;xylose&#8209;proton symporter</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,765,299</td><!-- Position -->
+<td align="center">G&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right">38.9%</td><td align="right">5.8%</td><td align="right">31.1%</td><td align="right">3.8%</td>
+<td align="center"><font class="snp_type_synonymous">G338G</font>&nbsp;(GG<font class="mutation_in_codon">G</font>&rarr;GG<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_02896</i>&nbsp;&rarr;</td>
+<td align="left">D&#8209;xylose&#8209;proton symporter</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,765,327</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right">15.0%</td><td align="right"></td><td align="right"></td><td align="right">24.4%</td><td align="right"></td>
+<td align="center"><font class="snp_type_nonsynonymous">I348V</font>&nbsp;(<font class="mutation_in_codon">A</font>TT&rarr;<font class="mutation_in_codon">G</font>TT)&nbsp;</td>
+<td align="center"><i>TDA1000_02896</i>&nbsp;&rarr;</td>
+<td align="left">D&#8209;xylose&#8209;proton symporter</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,765,377</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right">15.0%</td><td align="right"></td>
+<td align="center"><font class="snp_type_synonymous">L364L</font>&nbsp;(CT<font class="mutation_in_codon">C</font>&rarr;CT<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_02896</i>&nbsp;&rarr;</td>
+<td align="left">D&#8209;xylose&#8209;proton symporter</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,796,525</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right">29.6%</td><td align="right"></td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(&#8209;403/&#8209;221)</td>
+<td align="center"><i>TDA1000_02917</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_02918</i></td>
+<td align="left">Cellobiose 2&#8209;epimerase/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,796,553</td><!-- Position -->
+<td align="center">A&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right">43.8%</td><td align="right">10.1%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(&#8209;431/&#8209;193)</td>
+<td align="center"><i>TDA1000_02917</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_02918</i></td>
+<td align="left">Cellobiose 2&#8209;epimerase/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">3,796,579</td><!-- Position -->
+<td align="center">T&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right">48.1%</td><td align="right">20.1%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(&#8209;457/&#8209;167)</td>
+<td align="center"><i>TDA1000_02917</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_02918</i></td>
+<td align="left">Cellobiose 2&#8209;epimerase/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">4,005,947</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.1%</td>
+<td align="center"><font class="snp_type_synonymous">Y166Y</font>&nbsp;(TA<font class="mutation_in_codon">C</font>&rarr;TA<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_03087</i>&nbsp;&rarr;</td>
+<td align="left">Na(+)&#8209;translocating ferredoxin:NAD(+) oxidoreductase complex subunit E</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">4,146,285</td><!-- Position -->
+<td align="center">G&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.1%</td>
+<td align="center"><font class="snp_type_nonsynonymous">A412V</font>&nbsp;(G<font class="mutation_in_codon">C</font>C&rarr;G<font class="mutation_in_codon">T</font>C)&nbsp;</td>
+<td align="center"><i>TDA1000_03212</i>&nbsp;&larr;</td>
+<td align="left">Adaptive&#8209;response sensory&#8209;kinase SasA</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">4,147,064</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.1%</td>
+<td align="center"><font class="snp_type_nonsynonymous">M152I</font>&nbsp;(AT<font class="mutation_in_codon">G</font>&rarr;AT<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_03212</i>&nbsp;&larr;</td>
+<td align="left">Adaptive&#8209;response sensory&#8209;kinase SasA</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">4,616,211</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.77%</td>
+<td align="center"><font class="snp_type_synonymous">P12P</font>&nbsp;(CC<font class="mutation_in_codon">G</font>&rarr;CC<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_03591</i>&nbsp;&larr;</td>
+<td align="left">Octanoyltransferase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">4,903,661</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.2%</td>
+<td align="center"><font class="snp_type_synonymous">G350G</font>&nbsp;(GG<font class="mutation_in_codon">G</font>&rarr;GG<font class="mutation_in_codon">A</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_03850</i>&nbsp;&larr;</td>
+<td align="left">putative undecaprenyl&#8209;phosphate N&#8209;acetylglucosaminyl 1&#8209;phosphate transferase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">4,905,710</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.1%</td>
+<td align="center">coding&nbsp;(1168&#8209;1170/1314&nbsp;nt)</td>
+<td align="center"><i>TDA1000_03852</i>&nbsp;&larr;</td>
+<td align="left">UDP&#8209;glucose 6&#8209;dehydrogenase TuaD</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">4,991,053</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.3%</td>
+<td align="center"><font class="snp_type_nonsynonymous">L26F</font>&nbsp;(TT<font class="mutation_in_codon">A</font>&rarr;TT<font class="mutation_in_codon">T</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_03931</i>&nbsp;&larr;</td>
+<td align="left">Cytochrome c&#8209;552</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,226,821</td><!-- Position -->
+<td align="center">&Delta;1&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.0%</td>
+<td align="center">coding&nbsp;(1110/1122&nbsp;nt)</td>
+<td align="center"><i>TDA1000_04136</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,284,247</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.3%</td>
+<td align="center">coding&nbsp;(2051&#8209;2053/2370&nbsp;nt)</td>
+<td align="center"><i>TDA1000_04175</i>&nbsp;&larr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,363,898</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">1.8%</td>
+<td align="center"><font class="snp_type_synonymous">C315C</font>&nbsp;(TG<font class="mutation_in_codon">T</font>&rarr;TG<font class="mutation_in_codon">C</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_04250</i>&nbsp;&larr;</td>
+<td align="left">Tyrosine recombinase XerC</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,365,334</td><!-- Position -->
+<td align="center">A&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">6.6%</td><td align="right"></td><td align="right">4.1%</td>
+<td align="center">intergenic&nbsp;(&#8209;492/+77)</td>
+<td align="center"><i>TDA1000_04250</i>&nbsp;&larr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_04251</i></td>
+<td align="left">Tyrosine recombinase XerC/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,582,584</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right">16.7%</td><td align="right"></td><td align="right"></td><td align="right">15.7%</td><td align="right"></td>
+<td align="center">intergenic&nbsp;(&#8209;1079/&#8209;118)</td>
+<td align="center"><i>TDA1000_04395</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>TDA1000_04396</i></td>
+<td align="left">16S ribosomal RNA/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,584,293</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">20.9%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(+315/+685)</td>
+<td align="center"><i>TDA1000_04397</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_04398</i></td>
+<td align="left">IS3 family transposase ISPg5/Retaining alpha&#8209;galactosidase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,584,310</td><!-- Position -->
+<td align="center">T&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">16.5%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(+332/+668)</td>
+<td align="center"><i>TDA1000_04397</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_04398</i></td>
+<td align="left">IS3 family transposase ISPg5/Retaining alpha&#8209;galactosidase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,584,326</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">10.2%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(+348/+652)</td>
+<td align="center"><i>TDA1000_04397</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_04398</i></td>
+<td align="left">IS3 family transposase ISPg5/Retaining alpha&#8209;galactosidase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,584,327</td><!-- Position -->
+<td align="center">T&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">13.1%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(+349/+651)</td>
+<td align="center"><i>TDA1000_04397</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_04398</i></td>
+<td align="left">IS3 family transposase ISPg5/Retaining alpha&#8209;galactosidase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,584,346</td><!-- Position -->
+<td align="center">C&rarr;A</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">9.1%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(+368/+632)</td>
+<td align="center"><i>TDA1000_04397</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_04398</i></td>
+<td align="left">IS3 family transposase ISPg5/Retaining alpha&#8209;galactosidase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,584,350</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">8.0%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(+372/+628)</td>
+<td align="center"><i>TDA1000_04397</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_04398</i></td>
+<td align="left">IS3 family transposase ISPg5/Retaining alpha&#8209;galactosidase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,584,354</td><!-- Position -->
+<td align="center">C&rarr;T</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">9.5%</td><td align="right"></td><td align="right"></td>
+<td align="center">intergenic&nbsp;(+376/+624)</td>
+<td align="center"><i>TDA1000_04397</i>&nbsp;&rarr;&nbsp;/&nbsp;&larr;&nbsp;<i>TDA1000_04398</i></td>
+<td align="left">IS3 family transposase ISPg5/Retaining alpha&#8209;galactosidase</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,779,234</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">7.0%</td>
+<td align="center"><font class="snp_type_nonsynonymous">E83G</font>&nbsp;(G<font class="mutation_in_codon">A</font>G&rarr;G<font class="mutation_in_codon">G</font>G)&nbsp;</td>
+<td align="center"><i>TDA1000_04563</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">5,780,469</td><!-- Position -->
+<td align="center">&Delta;3&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">0.72%</td><td align="right"></td><td align="right"></td>
+<td align="center">coding&nbsp;(211&#8209;213/1716&nbsp;nt)</td>
+<td align="center"><i>TDA1000_04565</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">6,073,436</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">3.0%</td>
+<td align="center"><font class="snp_type_nonsynonymous">V86A</font>&nbsp;(G<font class="mutation_in_codon">T</font>A&rarr;G<font class="mutation_in_codon">C</font>A)&nbsp;</td>
+<td align="center"><i>TDA1000_04802</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor SusC</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">chromosome</td><!-- Seq_Id -->
+<td align="right">6,073,438</td><!-- Position -->
+<td align="center">G&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">2.7%</td>
+<td align="center"><font class="snp_type_synonymous">V85V</font>&nbsp;(GT<font class="mutation_in_codon">C</font>&rarr;GT<font class="mutation_in_codon">G</font>)&nbsp;</td>
+<td align="center"><i>TDA1000_04802</i>&nbsp;&larr;</td>
+<td align="left">TonB&#8209;dependent receptor SusC</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">plasmid</td><!-- Seq_Id -->
+<td align="right">3,400</td><!-- Position -->
+<td align="center">T&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.69%</td>
+<td align="center"><font class="snp_type_nonsynonymous">T130P</font>&nbsp;(<font class="mutation_in_codon">A</font>CG&rarr;<font class="mutation_in_codon">C</font>CG)&nbsp;</td>
+<td align="center"><i>BT_p548205</i>&nbsp;&larr;</td>
+<td align="left">putative replication protein B</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">plasmid</td><!-- Seq_Id -->
+<td align="right">4,392</td><!-- Position -->
+<td align="center">&Delta;4&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">1.1%</td><td align="right"></td><td align="right">1.3%</td>
+<td align="center">intergenic&nbsp;(&#8209;605/&#8209;152)</td>
+<td align="center"><i>BT_p548205</i>&nbsp;&larr;&nbsp;/&nbsp;&rarr;&nbsp;<i>BT_p548206</i></td>
+<td align="left">putative replication protein B/mobilization protein A</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">plasmid</td><!-- Seq_Id -->
+<td align="right">13,700</td><!-- Position -->
+<td align="center">A&rarr;C</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.86%</td>
+<td align="center"><font class="snp_type_nonsynonymous">T65P</font>&nbsp;(<font class="mutation_in_codon">A</font>CG&rarr;<font class="mutation_in_codon">C</font>CG)&nbsp;</td>
+<td align="center"><i>BT_p548214</i>&nbsp;&rarr;</td>
+<td align="left">hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">plasmid</td><!-- Seq_Id -->
+<td align="right">16,570</td><!-- Position -->
+<td align="center">A&rarr;G</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right"></td><td align="right"></td><td align="right">0.64%</td>
+<td align="center">intergenic&nbsp;(+429/&#8209;108)</td>
+<td align="center"><i>BT_p548216</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>BT_p548217</i></td>
+<td align="left">TraN&#8209;like protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">plasmid</td><!-- Seq_Id -->
+<td align="right">22,075:2</td><!-- Position -->
+<td align="center">+C</td><!-- Cell Mutation -->
+<td align="right">18.6%</td><td align="right">5.0%</td><td align="right">3.3%</td><td align="right"></td><td align="right">4.8%</td>
+<td align="center">intergenic&nbsp;(+171/&#8209;268)</td>
+<td align="center"><i>BT_p548226</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>BT_p548227</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">plasmid</td><!-- Seq_Id -->
+<td align="right">22,076</td><!-- Position -->
+<td align="center">&Delta;4&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right">14.7%</td><td align="right">3.6%</td><td align="right">5.1%</td><td align="right">10.4%</td><td align="right">9.0%</td>
+<td align="center">intergenic&nbsp;(+172/&#8209;264)</td>
+<td align="center"><i>BT_p548226</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>BT_p548227</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_1">
+<td align="center">plasmid</td><!-- Seq_Id -->
+<td align="right">22,106</td><!-- Position -->
+<td align="center">&Delta;1&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">2.1%</td><td align="right"></td><td align="right">1.0%</td>
+<td align="center">intergenic&nbsp;(+202/&#8209;237)</td>
+<td align="center"><i>BT_p548226</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>BT_p548227</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+
+<!-- Print The Table Row -->
+<tr class="alternate_table_row_0">
+<td align="center">plasmid</td><!-- Seq_Id -->
+<td align="right">22,107</td><!-- Position -->
+<td align="center">&Delta;1&nbsp;bp</td><!-- Cell Mutation -->
+<td align="right"></td><td align="right"></td><td align="right">1.4%</td><td align="right"></td><td align="right">0.75%</td>
+<td align="center">intergenic&nbsp;(+203/&#8209;236)</td>
+<td align="center"><i>BT_p548226</i>&nbsp;&rarr;&nbsp;/&nbsp;&rarr;&nbsp;<i>BT_p548227</i></td>
+<td align="left">hypothetical protein/hypothetical protein</td>
+</tr>
+<!-- End Table Row -->
+</table></body></html>
