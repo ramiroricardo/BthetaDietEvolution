@@ -189,7 +189,7 @@ dynamics_long$parallel<-ifelse(dynamics_long$gene %in% parallel_genes, "yes","no
 
 
 # write the long format dataframe to a new file
-# writexl::write_xlsx(dynamics_long,"analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDYnamics_longFormat_woutLowConfMutations_c.xlsx")
+# writexl::write_xlsx(dynamics_long,"analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_out_temporalDyn_longFormat_woutLowConfMutations_c.xlsx")
 
 ```
 
@@ -242,7 +242,7 @@ dynamics_long_annot<-dynamics_long_annot[c(1:5,20,6:19)]
 dynamics_long_annot$day<-as.numeric(dynamics_long_annot$day)
 
 # write the long format dataframe to a new file
-# writexl::write_xlsx(dynamics_long_annot,"analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat_woutLowConfMutations_withAnnotations_c.xlsx")
+# writexl::write_xlsx(dynamics_long_annot,"analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_out_temporalDyn_longFormat_woutLowConfMuts_withAnnots_c.xlsx")
 
 ```
 
@@ -254,7 +254,7 @@ Fig. 6A
 ```{r,fig.width=10,fig.height=6}
 # load data
 
-dynamics_long_annot<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat_woutLowConfMutations_withAnnotations_c.xlsx")
+dynamics_long_annot<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_out_temporalDyn_longFormat_woutLowConfMuts_withAnnots_c.xlsx")
 
 #create a dataframe for the shading
 shading_df <- data.frame(ymin = -Inf, 
