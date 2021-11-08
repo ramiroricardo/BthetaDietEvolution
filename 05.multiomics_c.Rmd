@@ -65,7 +65,7 @@ I am using the following data:
 
 ###parallel mutations (frequency per gene)
 #load data
-d84_para_gene<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+d84_para_gene<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_freqPerGene_c.xlsx")
 
 #correct maximum frequency to 1, as some genes are mutated multiple times
 d84_para_gene$freq_gene_corr<-ifelse(d84_para_gene$freq_gene>1,1,d84_para_gene$freq_gene)
@@ -1201,9 +1201,9 @@ This is a more sophisticated method of testing for correlations between features
 
 ```{r}
 # get features to keep (have to be detected in more than 5 mice)
-d84_para_gene_halla<-read_tsv("analysis/multiomics/halla/d84_paralleMutations_freqPerGene_halla.tsv")
-physeq_d84_melt_filt_halla<-read_tsv("analysis/multiomics/halla/d84_microbiome_halla.tsv")
-metab_d84_halla<-read_tsv("analysis/multiomics/halla/d84_metabolome_halla.tsv")
+d84_para_gene_halla<-read_tsv("analysis/multiomics/halla/d84_paralleMutations_freqPerGene_halla_c.tsv")
+physeq_d84_melt_filt_halla<-read_tsv("analysis/multiomics/halla/d84_microbiome_halla_c.tsv")
+metab_d84_halla<-read_tsv("analysis/multiomics/halla/d84_metabolome_halla_c.tsv")
 
 mutations_filt<-d84_para_gene_halla %>% 
   pivot_longer(D84_C1:D84_M9,names_to="mouse",values_to="frequency") %>%
@@ -1410,7 +1410,7 @@ The PCA plot below is saved as `dynamics_aitchinson_PCA_allGenes.pdf`. The lines
 
 ```{r}
 # load dataframes for mutation temporal dynamics
-dynamics_long_annot<-read_xlsx("analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_temporalDynamics_longFormat_woutLowConfMutations_withAnnotations_c.xlsx")
+dynamics_long_annot<-read_xlsx("analysis/genomics/evolved_populations_breseq/temporalDynamics_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_out_temporalDyn_longFormat_woutLowConfMuts_withAnnots_c.xlsx")
 
 #remove zeroes and samples from days 0 and 13 (these are not present in metabolomics/asvs) and one duplicate row
 dynamics_long_annot<-dynamics_long_annot %>% subset(frequency>0 & day>=27)
