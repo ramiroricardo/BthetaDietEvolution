@@ -847,7 +847,7 @@ d84_long_parallel_freqGene<-d84_long_parallel %>%
   group_by(seq_id,gene,locus_name,description,sample,day,mouse,trt,diet) %>%
   summarize(freq_gene=sum(frequency))
 
-# writexl::write_xlsx(d84_long_parallel_freqGene,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+# writexl::write_xlsx(d84_long_parallel_freqGene,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_freqPerGene_c.xlsx")
 
 ```
 
@@ -864,7 +864,7 @@ d84_parallelMutationCounts_perDiet<-d84_long_parallel_freqGene %>%
 
 d84_parallelMutationCounts_perDiet[is.na(d84_parallelMutationCounts_perDiet)]<-0
 
-# writexl::write_xlsx(d84_parallelMutationCounts_perDiet,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_prevalence_c.xlsx")
+# writexl::write_xlsx(d84_parallelMutationCounts_perDiet,"analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_prevalence_c.xlsx")
 
 
 
@@ -964,7 +964,7 @@ p
 
 # prevalence of parallel mutations per gene per diet for genes mutated in more than 2 mice AND with mutation freqs>0.05
 
-d84_long_parallel_freqGene<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+d84_long_parallel_freqGene<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_freqPerGene_c.xlsx")
 
 
 d84_parallelMutationCounts_perDiet_2mice0.05<-d84_long_parallel_freqGene %>%
@@ -1256,7 +1256,7 @@ df_dietDifferentialMutationalTargets_fdr_p0.05$group_enriched<-c("AD","WD&AD","A
 
 df_dietDifferentialMutationalTargets_fdr_p0.05<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/df_dietDifferentialMutationalTargets_fdr_p0.05_c.xlsx")
 
-d84_long_parallel_freqGene<-read_excel("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+d84_long_parallel_freqGene<-read_excel("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_freqPerGene_c.xlsx")
 
 # add corrected frequency for those that go above 1
 d84_long_parallel_freqGene$freq_gene_corr<-ifelse(d84_long_parallel_freqGene$freq_gene>1,1,d84_long_parallel_freqGene$freq_gene)
@@ -1336,7 +1336,7 @@ ggplot(d84_long_parallel_freqGene_incl0_sub,
 
 ```{r}
 # Parallel Mutational targets
-d84_long_parallel_freqGene<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+d84_long_parallel_freqGene<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_freqPerGene_c.xlsx")
 
 d84_long_parallel_freqGene$freq_gene_corr<-ifelse(d84_long_parallel_freqGene$freq_gene>1,1,d84_long_parallel_freqGene$freq_gene)
 
@@ -1409,7 +1409,7 @@ This was tested for all parallel genes that were mutated in at least 1/3 of the 
 
 #load prevalence table
 
-d84_parallelMutationCounts_perDiet<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_prevalence_c.xlsx")
+d84_parallelMutationCounts_perDiet<-read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_prevalence_c.xlsx")
 
 prevalentGenes<-d84_parallelMutationCounts_perDiet %>% gather(.,key=diet,value=count,AD:WD) %>%
   group_by(gene) %>% summarize(no_mice_mutated=sum(count)) %>% subset(no_mice_mutated>=14)
@@ -1574,7 +1574,7 @@ ggplot(d84_long_parallel_prev_count[d84_long_parallel_prev_count$locus_name=="BT
 ```
 
 ```{r}
-d84_long_parallel_freqGene<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_withAnnotations_freqPerGene_c.xlsx")
+d84_long_parallel_freqGene<-readxl::read_xlsx("analysis/genomics/evolved_populations_breseq/D84_prokkaREF_MQ20_BQ30_v3ref/downstreamAnalysis/breseq_output_day84_longFormat_parallelMutations_freqPerGene_c.xlsx")
 
 d84_long_parallel_freqGene$freq_gene_corr<-ifelse(d84_long_parallel_freqGene$freq_gene>1,1,d84_long_parallel_freqGene$freq_gene)
 
