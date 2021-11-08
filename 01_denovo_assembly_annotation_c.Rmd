@@ -271,7 +271,7 @@ queryTDA_subjectNCBI_dat<-bind_rows(queryTDA_subjectNCBI_single,queryTDA_subject
 
 #read gff and merge and create dataframe with all gene names
 
-tda1000_gff<-readGFF("analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/assemblies_polished/annotation/prokka/OUT_general_orig_prokka/TDA1000.gff")
+tda1000_gff<-rtracklayer::readGFF("analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/TDA1000.gff")
 
 tda1000_gff<-as.data.frame(tda1000_gff)
 
@@ -289,7 +289,9 @@ annotation_table<-left_join(tda1000_gff,queryTDA_subjectNCBI_dat,by=c("locus_tag
 
 annotation_table$sseqid_qTDA[is.na(annotation_table$sseqid_qTDA)] <- "ND"
 
-writexl::write_xlsx(annotation_table,"analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/annotation_table.xlsx")
+# writexl::write_xlsx(annotation_table,"analysis/genomics/TDA1000/TDA1000_hybridAssembly/results/assemblies/prokka_annotation/annotation_table.xlsx")
+
+
 
 ```
 
@@ -297,6 +299,8 @@ I then manually edited this file to correct the genes that had multiple matches,
 
 - attributing a gene name based on synteny  
 - whenever there were more copies in our de novo assembly than in NC_004663, we attributed the name of the first gene to the non-synthenic copies 
+
+Moreover, I generated the file annotation_table_short.xlsx with just the columns: locus_tag_prokka and the sseqid_qTDA. The later was renamed to locus_tag_db
 
 ## Run breseq to remap reads against the assembly and polish assembly
 
