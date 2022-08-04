@@ -11,3 +11,5 @@ The .Rmd files contain all of the analysis, except those that were carried with 
 Intermediate files are in the data and analysis folders. 
 
 Cloning/downloading this repository, and oppening BthetaDietEvolution.Rproj (RStudio) will allow rendering each of the .Rmd files into html files with statistical output and figures. 
+
+**NOTE:** The ancestral strain, identified here as TDA1000 is a direct descendent of B. thetaiotaomicron DSMZ 2079, which was ordered and stored unmodified at -80ºC at IGC. An assembly of B. thetaiotaomicron DSMZ 2079 was deposited the Helmholtz Centre for Environmental Research - UFZ at NCBI, having the following GenBank assembly accession: GCA_014131755.1 (https://www.ncbi.nlm.nih.gov/assembly/GCF_014131755.1/).
